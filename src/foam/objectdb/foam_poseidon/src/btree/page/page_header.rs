@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::{error::FP_BTREE_PAGE_ILL_HEADER_LEN, internal::FPResult, FP_ASSERT, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
+use crate::{error::FP_BTREE_PAGE_HEADER_LEN_ILL, internal::FPResult, FP_ASSERT, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
 use super::PageTypeV2;
 
@@ -43,7 +43,7 @@ impl PageHeaderRaw {
     #[must_use]
     #[inline(always)]
     pub(crate) fn deserialize(raw_data: &[u8]) -> FPResult<(usize, &'static PageHeaderRaw)> {
-        FP_ASSERT!(raw_data.len() >= FP_SIZE_OF!(PageHeaderRaw), FP_BTREE_PAGE_ILL_HEADER_LEN);
+        FP_ASSERT!(raw_data.len() >= FP_SIZE_OF!(PageHeaderRaw), FP_BTREE_PAGE_HEADER_LEN_ILL);
 
         Ok((FP_SIZE_OF!(PageHeaderRaw), FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderRaw)))
     }
