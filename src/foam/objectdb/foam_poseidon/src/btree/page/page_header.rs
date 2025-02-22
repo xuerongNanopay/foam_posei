@@ -1,14 +1,32 @@
 #![allow(unused)]
 
-use crate::{FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF};
+use crate::{FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-pub(super) struct PageHeader {
-
-}
 
 #[derive(Debug, Clone, PartialEq)]
+pub(super) struct PageHeader {
+    column_number: u64,
+    write_epoch: u64,
+    in_memory_size: u32,
+    entries: u32,
+    r#type: u8,
+    flag: u8,
+    unused: u8,
+    version: u8,
+}
+
+impl PageHeader {
+    const FLAG_COMPRESSED: u8 = 0x01;
+    const FLAG_ENCRYPTED:  u8 = 0x02;
+    const FLAG_UNUSED:     u8 = 0x03;
+}
+
+/**
+ * In-page page header reference.
+ */
+#[derive(Debug, Clone, PartialEq)]
 #[repr(packed)]
-pub(super) struct PageHeaderRaw {
+pub(super) struct PageHeaderInner {
     column_number: u64,
     write_epoch: u64,
     size: u32,
@@ -19,13 +37,16 @@ pub(super) struct PageHeaderRaw {
     version: u8,
 }
 
-impl PageHeaderRaw {
-    pub(crate) fn cast_into(raw_data: &[u8]) -> &'static PageHeaderRaw {
-        FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderRaw)
+impl PageHeaderInner {
+    #[must_use]
+    #[inline(always)]
+    pub(crate) fn cast_into(raw_data: &[u8]) -> &'static PageHeaderInner {
+        assert!(raw_data.len() >= FP_SIZE_OF!(PageHeaderInner));
+        FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderInner)
     }
 
-    fn get_from_raw(&self) -> PageHeaderRaw {
-        Self {
+    fn get_from_raw(&self) -> PageHeader {
+        PageHeader {
             column_number:  if cfg!(target_endian = "big") { 
                 FP_BIT_REVERSE_64!(self.column_number)
             } else {
@@ -36,7 +57,7 @@ impl PageHeaderRaw {
             } else {
                 self.write_epoch
             },
-            size:  if cfg!(target_endian = "big") { 
+            in_memory_size:  if cfg!(target_endian = "big") { 
                 FP_BIT_REVERSE_32!(self.size)
             } else {
                 self.size
@@ -53,11 +74,11 @@ impl PageHeaderRaw {
         }
     }
 
-    fn set_to_raw(&mut self, page_header: PageHeaderRaw) {
+    fn set_to_raw(&mut self, page_header: PageHeader) {
         if cfg!(target_endian = "big") { 
             self.column_number = FP_BIT_REVERSE_64!(page_header.column_number);
             self.write_epoch = FP_BIT_REVERSE_64!(page_header.write_epoch);
-            self.size = FP_BIT_REVERSE_32!(page_header.size);
+            self.size = FP_BIT_REVERSE_32!(page_header.in_memory_size);
             self.entries = FP_BIT_REVERSE_32!(page_header.entries);
         }
         self.r#type = page_header.r#type;
@@ -77,6 +98,13 @@ mod tests {
 
     #[test]
     fn test_page_header_size() {
-        assert_eq!(RAW_PAGE_HEADER_SISE, FP_SIZE_OF!(PageHeaderRaw))
+        assert_eq!(RAW_PAGE_HEADER_SISE, FP_SIZE_OF!(PageHeaderInner))
+    }
+
+    #[test]
+    fn test_set_page_header() {
+        let raw_data = vec![0u8; 28];
+        let ph = PageHeaderInner::cast_into(&raw_data[..]);
+        
     }
 }

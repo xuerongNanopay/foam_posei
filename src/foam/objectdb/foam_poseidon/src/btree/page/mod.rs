@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use page_header::{PageHeaderRaw};
+use page_header::{PageHeaderInner};
 mod page_header;
 mod page;
 

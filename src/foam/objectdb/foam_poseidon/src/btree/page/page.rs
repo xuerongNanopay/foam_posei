@@ -2,23 +2,24 @@
 
 use crate::FP_REINTERPRET_CAST_BUF;
 
-use super::{page_header, PageHeaderRaw};
+use super::{page_header, PageHeaderInner};
 
 struct Page {
+    inner: PageInner,
 }
 
 impl Page {
     
 }
 
-struct PageRaw {
-    page_header: &'static PageHeaderRaw,
+struct PageInner {
+    page_header: &'static PageHeaderInner,
     raw_data: Vec<u8>,
 }
 
-impl PageRaw {
+impl PageInner {
     fn new(raw_data: Vec<u8>) -> Self {
-        let page_header = PageHeaderRaw::cast_into(&raw_data[..]);
+        let page_header = PageHeaderInner::cast_into(&raw_data[..]);
         Self {
             page_header,
             raw_data,
