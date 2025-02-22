@@ -27,6 +27,15 @@ macro_rules! FP_IO_ERR_RET {
 }
 
 #[macro_export]
+macro_rules! FP_ASSERT {
+    ($option:expr, $err:expr) => {
+        if $option {
+            return Err($err);
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! FP_ERR_RET {
     ($func:expr, $e:expr) => {
         match $func {
@@ -169,3 +178,5 @@ pub const FP_BT_PAGE_READ_RETRY:         FPErr = 302;
 
 pub const FP_BLK_HDL_READ_ILL_BLK_SIZE: FPErr = 501;
 pub const FP_BLK_HDL_READ_ILL_CHECKSUM: FPErr = 502;
+
+pub const FP_BTREE_PAGE_ILL_HEADER_LEN: FPErr = 11001;

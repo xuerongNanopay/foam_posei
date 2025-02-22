@@ -1,18 +1,25 @@
 #![allow(unused)]
 
-use crate::FP_REINTERPRET_CAST_BUF;
+use crate::{internal::FPResult, FP_REINTERPRET_CAST_BUF};
 
-use super::{page_header, PageHeaderRaw};
+use super::{page_header, PageHeaderRaw, PageHeaderV2};
 
 struct Page {
     inner: PageInner,
+    page_header: PageHeaderV2,
 }
 
 impl Page {
-}
+    fn new(raw_data: Vec<u8>) -> FPResult<Self> {
+        let inner = PageInner::new(raw_data)?;
+        let page_header = inner.page_header_raw.get_from_raw();
 
-struct PageRaw {
-
+        // match
+        Ok(Self {
+            page_header,
+            inner,
+        })
+    }
 }
 
 struct PageInner {
@@ -21,16 +28,16 @@ struct PageInner {
 }
 
 impl PageInner {
-    fn new(raw_data: Vec<u8>) -> Self {
+    fn new(raw_data: Vec<u8>) -> FPResult<Self> {
         let buffer = &raw_data[..];
-        let (size, page_header_raw) = PageHeaderRaw::deserialize(buffer);
+        let (size, page_header_raw) = PageHeaderRaw::deserialize(buffer)?;
 
         let buffer = &buffer[size..];
 
-        Self {
+        Ok(Self {
             page_header_raw,
             raw_data,
-        }
+        })
     }
 
 }

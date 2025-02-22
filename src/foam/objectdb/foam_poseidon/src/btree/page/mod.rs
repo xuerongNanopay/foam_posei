@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use page_header::{PageHeaderRaw};
+use page_header::{PageHeaderRaw, PageHeader as PageHeaderV2};
 use page_type::{PageType as PageTypeV2};
 
 mod page_header;

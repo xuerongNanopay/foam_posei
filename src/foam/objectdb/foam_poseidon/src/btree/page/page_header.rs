@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::{FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
+use crate::{error::FP_BTREE_PAGE_ILL_HEADER_LEN, internal::FPResult, FP_ASSERT, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
 use super::PageTypeV2;
 
@@ -11,8 +11,8 @@ pub(super) struct PageHeader {
     write_epoch: u64,
     in_memory_size: u32,
     entries: u32,
-    r#type: u8,
-    flag: PageTypeV2,
+    r#type: PageTypeV2,
+    flag: u8,
     unused: u8,
     version: u8,
 }
@@ -42,12 +42,13 @@ pub(super) struct PageHeaderRaw {
 impl PageHeaderRaw {
     #[must_use]
     #[inline(always)]
-    pub(crate) fn deserialize(raw_data: &[u8]) -> (usize, &'static PageHeaderRaw) {
-        assert!(raw_data.len() >= FP_SIZE_OF!(PageHeaderRaw));
-        (FP_SIZE_OF!(PageHeaderRaw), FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderRaw))
+    pub(crate) fn deserialize(raw_data: &[u8]) -> FPResult<(usize, &'static PageHeaderRaw)> {
+        FP_ASSERT!(raw_data.len() >= FP_SIZE_OF!(PageHeaderRaw), FP_BTREE_PAGE_ILL_HEADER_LEN);
+
+        Ok((FP_SIZE_OF!(PageHeaderRaw), FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderRaw)))
     }
 
-    fn get_from_raw(&self) -> PageHeader {
+    pub(crate) fn get_from_raw(&self) -> PageHeader {
         PageHeader {
             column_number:  if cfg!(target_endian = "big") { 
                 FP_BIT_REVERSE_64!(self.column_number)
@@ -69,22 +70,22 @@ impl PageHeaderRaw {
             } else {
                 self.entries
             },
-            r#type: self.r#type,
-            flag: PageTypeV2::try_from_code(self.flag).unwrap(),
+            r#type: PageTypeV2::try_from_code(self.r#type).unwrap(),
+            flag: self.flag,
             unused: self.unused,
             version: self.version,
         }
     }
 
-    fn set_to_raw(&mut self, page_header: PageHeader) {
+    pub(crate) fn set_to_raw(&mut self, page_header: PageHeader) {
         if cfg!(target_endian = "big") { 
             self.column_number = FP_BIT_REVERSE_64!(page_header.column_number);
             self.write_epoch = FP_BIT_REVERSE_64!(page_header.write_epoch);
             self.size = FP_BIT_REVERSE_32!(page_header.in_memory_size);
             self.entries = FP_BIT_REVERSE_32!(page_header.entries);
         }
-        self.r#type = page_header.r#type;
-        self.flag = page_header.flag.to_code();
+        self.r#type = page_header.r#type.to_code();
+        self.flag = page_header.flag;
         self.unused = page_header.unused;
         self.version = page_header.version;
     }
@@ -106,7 +107,7 @@ mod tests {
     #[test]
     fn test_set_page_header() {
         let raw_data = vec![0u8; 28];
-        let (_, header) = PageHeaderRaw::deserialize(&raw_data[..]);
+        let (_, header) = PageHeaderRaw::deserialize(&raw_data[..]).unwrap();
         
     }
 }
