@@ -10,8 +10,8 @@ pub(super) struct PageHeader {
     column_number: u64,
     write_epoch: u64,
     in_memory_size: u32,
-    entries: u32,
-    r#type: PageTypeV2,
+    entries_or_flowlen: u32,
+    pub(super) r#type: PageTypeV2,
     flag: u8,
     unused: u8,
     version: u8,
@@ -32,7 +32,7 @@ pub(super) struct PageHeaderRaw {
     column_number: u64,
     write_epoch: u64,
     size: u32,
-    entries: u32,
+    entries_or_flowlen: u32,
     r#type: u8,
     flag: u8,
     unused: u8,
@@ -65,10 +65,10 @@ impl PageHeaderRaw {
             } else {
                 self.size
             },
-            entries:  if cfg!(target_endian = "big") { 
-                FP_BIT_REVERSE_32!(self.entries)
+            entries_or_flowlen:  if cfg!(target_endian = "big") { 
+                FP_BIT_REVERSE_32!(self.entries_or_flowlen)
             } else {
-                self.entries
+                self.entries_or_flowlen
             },
             r#type: PageTypeV2::try_from_code(self.r#type).unwrap(),
             flag: self.flag,
@@ -82,7 +82,7 @@ impl PageHeaderRaw {
             self.column_number = FP_BIT_REVERSE_64!(page_header.column_number);
             self.write_epoch = FP_BIT_REVERSE_64!(page_header.write_epoch);
             self.size = FP_BIT_REVERSE_32!(page_header.in_memory_size);
-            self.entries = FP_BIT_REVERSE_32!(page_header.entries);
+            self.entries_or_flowlen = FP_BIT_REVERSE_32!(page_header.entries_or_flowlen);
         }
         self.r#type = page_header.r#type.to_code();
         self.flag = page_header.flag;
