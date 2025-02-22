@@ -2,6 +2,8 @@
 
 use crate::{FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
+use super::PageTypeV2;
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct PageHeader {
@@ -10,7 +12,7 @@ pub(super) struct PageHeader {
     in_memory_size: u32,
     entries: u32,
     r#type: u8,
-    flag: u8,
+    flag: PageTypeV2,
     unused: u8,
     version: u8,
 }
@@ -26,7 +28,7 @@ impl PageHeader {
  */
 #[derive(Debug, Clone, PartialEq)]
 #[repr(packed)]
-pub(super) struct PageHeaderInner {
+pub(super) struct PageHeaderRaw {
     column_number: u64,
     write_epoch: u64,
     size: u32,
@@ -37,12 +39,12 @@ pub(super) struct PageHeaderInner {
     version: u8,
 }
 
-impl PageHeaderInner {
+impl PageHeaderRaw {
     #[must_use]
     #[inline(always)]
-    pub(crate) fn cast_into(raw_data: &[u8]) -> &'static PageHeaderInner {
-        assert!(raw_data.len() >= FP_SIZE_OF!(PageHeaderInner));
-        FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderInner)
+    pub(crate) fn deserialize(raw_data: &[u8]) -> (usize, &'static PageHeaderRaw) {
+        assert!(raw_data.len() >= FP_SIZE_OF!(PageHeaderRaw));
+        (FP_SIZE_OF!(PageHeaderRaw), FP_REINTERPRET_CAST_BUF!(raw_data, PageHeaderRaw))
     }
 
     fn get_from_raw(&self) -> PageHeader {
@@ -68,7 +70,7 @@ impl PageHeaderInner {
                 self.entries
             },
             r#type: self.r#type,
-            flag: self.flag,
+            flag: PageTypeV2::try_from_code(self.flag).unwrap(),
             unused: self.unused,
             version: self.version,
         }
@@ -82,7 +84,7 @@ impl PageHeaderInner {
             self.entries = FP_BIT_REVERSE_32!(page_header.entries);
         }
         self.r#type = page_header.r#type;
-        self.flag = page_header.flag;
+        self.flag = page_header.flag.to_code();
         self.unused = page_header.unused;
         self.version = page_header.version;
     }
@@ -98,13 +100,13 @@ mod tests {
 
     #[test]
     fn test_page_header_size() {
-        assert_eq!(RAW_PAGE_HEADER_SISE, FP_SIZE_OF!(PageHeaderInner))
+        assert_eq!(RAW_PAGE_HEADER_SISE, FP_SIZE_OF!(PageHeaderRaw))
     }
 
     #[test]
     fn test_set_page_header() {
         let raw_data = vec![0u8; 28];
-        let ph = PageHeaderInner::cast_into(&raw_data[..]);
+        let (_, header) = PageHeaderRaw::deserialize(&raw_data[..]);
         
     }
 }

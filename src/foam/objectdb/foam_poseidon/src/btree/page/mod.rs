@@ -1,7 +1,10 @@
 #![allow(unused)]
 
-use page_header::{PageHeaderInner};
+use page_header::{PageHeaderRaw};
+use page_type::{PageType as PageTypeV2};
+
 mod page_header;
+mod page_type;
 mod page;
 
 use std::{mem::ManuallyDrop, ptr, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
