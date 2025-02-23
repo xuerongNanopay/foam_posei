@@ -1,8 +1,9 @@
 #![allow(unused)]
 
-use crate::{error::FP_BTREE_PAGE_TYPE_ILL, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF};
+use crate::{error::FP_BTREE_PAGE_TYPE_ILL, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
 use super::{page_header, PageHeaderRaw, PageHeaderV2, PageType, PageTypeV2};
+
 
 struct Page {
     inner: PageRaw,
@@ -19,8 +20,10 @@ impl Page {
 }
 
 impl Page {
+    const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
+
     fn new(raw_data: Vec<u8>) -> FPResult<Self> {
-        let inner = PageRaw::new(raw_data)?;
+        let inner = PageRaw::new(raw_data, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
         let page_header = inner.page_header_raw.get_from_raw();
 
         let mut page_tuples: u32 = match page_header.r#type {
@@ -60,7 +63,7 @@ struct PageRaw {
 }
 
 impl PageRaw {
-    fn new(raw_data: Vec<u8>) -> FPResult<Self> {
+    fn new(raw_data: Vec<u8>, header_offset: usize, entry_offset: usize) -> FPResult<Self> {
         let buffer = &raw_data[..];
         let (size, page_header_raw) = PageHeaderRaw::deserialize(buffer)?;
 

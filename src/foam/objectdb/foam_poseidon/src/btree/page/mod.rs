@@ -3,9 +3,11 @@
 use page_header::{PageHeaderRaw, PageHeader as PageHeaderV2};
 use page_type::{PageType as PageTypeV2};
 
+mod page;
 mod page_header;
 mod page_type;
-mod page;
+mod page_cell;
+mod page_metas;
 
 use std::{mem::ManuallyDrop, ptr, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
