@@ -7,20 +7,22 @@ use super::PageTypeV2;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct PageHeader {
-    column_number: u64,
-    write_epoch: u64,
-    in_memory_size: u32,
-    entries_or_flowlen: u32,
+    pub(super) column_number: u64,
+    pub(super) write_epoch: u64,
+    pub(super) in_memory_size: u32,
+    pub(super) entries_or_flowlen: u32,
     pub(super) r#type: PageTypeV2,
-    flag: u8,
-    unused: u8,
-    version: u8,
+    pub(super) flags: u8,
+    pub(super) unused: u8,
+    pub(super) version: u8,
 }
 
 impl PageHeader {
-    const FLAG_COMPRESSED: u8 = 0x01;
-    const FLAG_ENCRYPTED:  u8 = 0x02;
-    const FLAG_UNUSED:     u8 = 0x03;
+    pub(super) const FLAG_COMPRESSED:                   u8 = 0x01 << 0;
+    pub(super) const FLAG_ENCRYPTED:                    u8 = 0x01 << 1;
+    pub(super) const FLAG_UNUSED:                       u8 = 0x01 << 2;
+    pub(super) const FLAG_ROW_LEAF_VALUE_EMPTY_ALL:     u8 = 0x01 << 3;
+    pub(super) const FLAG_ROW_LEAF_VALUE_EMPTY_NONE:    u8 = 0x01 << 4;
 }
 
 /**
@@ -34,7 +36,7 @@ pub(super) struct PageHeaderRaw {
     size: u32,
     entries_or_flowlen: u32,
     r#type: u8,
-    flag: u8,
+    flags: u8,
     unused: u8,
     version: u8,
 }
@@ -71,7 +73,7 @@ impl PageHeaderRaw {
                 self.entries_or_flowlen
             },
             r#type: PageTypeV2::try_from_code(self.r#type).unwrap(),
-            flag: self.flag,
+            flags: self.flags,
             unused: self.unused,
             version: self.version,
         }
@@ -85,7 +87,7 @@ impl PageHeaderRaw {
             self.entries_or_flowlen = FP_BIT_REVERSE_32!(page_header.entries_or_flowlen);
         }
         self.r#type = page_header.r#type.to_code();
-        self.flag = page_header.flag;
+        self.flags = page_header.flags;
         self.unused = page_header.unused;
         self.version = page_header.version;
     }
