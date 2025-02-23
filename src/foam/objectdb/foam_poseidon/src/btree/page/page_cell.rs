@@ -57,23 +57,28 @@ impl Cell {
     const SHORT_TYPE_MASK:u8 = 0x01;
 }
 
-struct CellInPage {
+struct CellDataIn {
     offset: usize,       /* Offset to the starting position of cell in page.  */
     cell: &'static [u8],
     data: &'static[u8],
     prefix: Option<&'static[u8]>,
 }
 
+struct CellDataOff {
+    data: Vec<u8>
+}
+
 enum CellData {
-    InPage(CellInPage)
+    InPage(CellDataIn),
+    OffPage(CellDataOff),
 }
 
 struct CellKV {
-    val: CellData,
+    data: CellData,
 }
 
 struct CellAddr {
-    val: CellData,
+    data: CellData,
 }
 
 
