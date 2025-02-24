@@ -75,11 +75,22 @@ impl Iterator for CellReader<'_> {
             }
         };
 
-        let prefix = if descriptor.0 == Cell::KEY_PFX {
+        let prefix = if raw_type == Cell::KEY_PFX {
             Some(self.cur[1])
         } else {
             None
         };
+
+        //NEED TODO: parse mvcc fields.
+        match raw_type {
+            Cell::ADDR_DEL | Cell::ADDR_INTERNAL | Cell::ADDR_LEAF | Cell::ADDR_LEAF_NO => {
+
+            },
+            Cell::KV_DEL | Cell::VALUE | Cell::VALUE_COPY | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL => {
+                
+            }
+            _ => {}
+        }
 
         None
     }
