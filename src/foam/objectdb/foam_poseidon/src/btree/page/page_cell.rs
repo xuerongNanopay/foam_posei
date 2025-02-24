@@ -48,6 +48,7 @@ impl Iterator for CellReader<'_> {
                 self.cur = &self.cur[2+size..];
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
+                    is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
                         data,
@@ -63,6 +64,7 @@ impl Iterator for CellReader<'_> {
                 self.cur = &self.cur[1+size..];
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
+                    is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
                         data,
@@ -97,7 +99,24 @@ impl Iterator for CellReader<'_> {
         //NEED TODO: fast-truncate.
         //NEED TODO: column Run-Length Encoding.
 
-        
+        match raw_type {
+            Cell::VALUE_COPY => {
+
+            },
+            Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL |
+            Cell::ADDR_DEL | Cell::ADDR_INTERNAL | Cell::ADDR_LEAF | Cell::ADDR_LEAF_NO |
+            Cell::KEY | Cell::KEY_PFX | Cell::VALUE => {
+                if matches!(raw_type, Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL)  {
+
+                }
+            },
+            Cell::KV_DEL => {
+
+            }
+            _ => {
+                panic!("impossible code")
+            }
+        }
 
         None
     }
@@ -158,7 +177,7 @@ impl Cell {
 }
 
 struct CellDataIn {
-    cell: &'static [u8],
+    cell: &'static[u8],
     data: &'static[u8],
     prefix: Option<u8>,
 }
@@ -175,6 +194,7 @@ enum CellData {
 /* Implement TryFrom */
 pub(crate) struct CellKV {
     data: CellData,
+    is_overflow: bool,
     // mvcc_meta: PageKVTS,
 }
 
