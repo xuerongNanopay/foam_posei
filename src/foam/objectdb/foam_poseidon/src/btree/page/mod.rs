@@ -3,6 +3,7 @@
 use page_header::{PageHeaderRaw, PageHeader as PageHeaderV2};
 use page_type::{PageType as PageTypeV2};
 use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
+use page_cell::{CellReader};
 
 mod page;
 mod page_header;

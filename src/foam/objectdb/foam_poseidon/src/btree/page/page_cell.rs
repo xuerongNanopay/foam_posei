@@ -1,19 +1,31 @@
 #![allow(unused)]
 
-use crate::FP_BIT_IST;
+use crate::{internal::{FPErr, FPResult}, FP_BIT_IST};
 
-use super::page_metas::{PageAddrTS, PageKVTS};
+use super::{page_metas::{PageAddrTS, PageKVTS}, PageHeaderV2};
 
 /**
  * In-page tuple header reference.
  */
 #[derive(Debug, Clone, PartialEq)]
-struct CellReader(&'static [u8]);
+pub(super) struct CellReader<'a> {
+    page_header: PageHeaderV2,
+    start: &'a [u8],
+    cur: &'a [u8],
+}
 
-impl CellReader {
+impl<'a> CellReader<'a>  {
+
+    pub(crate) fn new(bytes: &'a [u8], page_header: PageHeaderV2) -> CellReader<'a>{
+        Self {
+            start: bytes,
+            cur: bytes,
+            page_header
+        }
+    }
 
     fn cell_deacriptor(&self) -> CellDescriptor {
-        CellDescriptor(self.0[0])
+        CellDescriptor(self.cur[0])
     }
 
     fn read_cell(&self) {
@@ -33,7 +45,7 @@ impl CellReader {
     }
 }
 
-impl Iterator for CellReader {
+impl Iterator for CellReader<'_> {
     type Item = Cell;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -50,7 +62,7 @@ impl CellDescriptor {
     }
 }
 
-enum Cell {
+pub(crate) enum Cell {
     KV(CellKV),
     Addr(CellAddr),
 }
@@ -76,12 +88,12 @@ enum CellData {
 }
 
 /* Implement TryFrom */
-struct CellKV {
+pub(crate) struct CellKV {
     data: CellData,
     mvcc_meta: PageKVTS,
 }
 
-struct CellAddr {
+pub(crate) struct CellAddr {
     data: CellData,
     mvcc_meta: PageAddrTS,
 }
@@ -91,7 +103,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tuple_header_len() {
-
+    fn test_cell_reader() {
+        // let buffer = [0u8, 10];
+        // let reader = CellReader::try_from(&buffer[..]);
     }
 }
