@@ -13,7 +13,6 @@ pub(super) struct CellReader<'a> {
     start: &'a [u8],
     cur: &'a [u8],
     read_cells: u32,
-    offset: usize,
 }
 
 impl<'a> CellReader<'a>  {
@@ -24,7 +23,6 @@ impl<'a> CellReader<'a>  {
             cur: buffer,
             page_header,
             read_cells: 0,
-            offset: 0,
         }
     }
 }
@@ -38,50 +36,50 @@ impl Iterator for CellReader<'_> {
         }
 
         let descriptor = CellDescriptor(self.cur[0]);
+        let raw_type = descriptor.get_raw_type();
 
-        let cell_type = descriptor.get_type();
+        match raw_type {
+            Cell::SHORT_KEY_PFX => {
+                let prefix = self.cur[1];
+                let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+                /* skip lifetime check. */
+                let data =  unsafe { &*(&self.cur[2..] as *const [u8]) };
+                let cell =  unsafe { &*(&self.cur[..2+size] as *const [u8]) };
+                self.cur = &self.cur[2+size..];
+                self.read_cells += 1;
+                return Some(Cell::KV(CellKV{
+                    data: CellData::InPage(CellDataIn{
+                        cell,
+                        data,
+                        prefix: Some(prefix),
+                    })
+                }))
+            },
+            Cell::SHORT_KEY | Cell::SHORT_VALUE => {
+                let prefix = 0u8;
+                let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+                let data =  unsafe { &*(&self.cur[1..] as *const [u8]) };
+                let cell =  unsafe { &*(&self.cur[..1+size] as *const [u8]) };
+                self.cur = &self.cur[1+size..];
+                self.read_cells += 1;
+                return Some(Cell::KV(CellKV{
+                    data: CellData::InPage(CellDataIn{
+                        cell,
+                        data,
+                        prefix: None,
+                    })
+                }))
+            },
+            _ => {
+               /* Long Type */
+            }
+        };
 
-        if descriptor.is_short_type() {
-            match cell_type {
-                CellType::Short(c) => {
-                    match c.0 {
-                        Cell::SHORT_KEY_PFX => {
-                            let prefix = self.cur[1];
-                            let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
-                            /* skip lifetime check. */
-                            let data =  unsafe { &*(&self.cur[2..] as *const [u8]) };
-                            let cell =  unsafe { &*(&self.cur[..2+size] as *const [u8]) };
-                            return Some(Cell::KV(CellKV{
-                                data: CellData::InPage(CellDataIn{
-                                    cell,
-                                    data,
-                                    prefix: Some(prefix),
-                                })
-                            }))
-                        },
-                        Cell::SHORT_KEY | Cell::SHORT_VALUE => {
-                            let prefix = 0u8;
-                            let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
-                            let data =  unsafe { &*(&self.cur[1..] as *const [u8]) };
-                            let cell =  unsafe { &*(&self.cur[..1+size] as *const [u8]) };
-                            return Some(Cell::KV(CellKV{
-                                data: CellData::InPage(CellDataIn{
-                                    cell,
-                                    data,
-                                    prefix: None,
-                                })
-                            }))
-                        },
-                        _ => {
-                            panic!("impossible code with cell type: {}", c.0);
-                        }
-                    };
-                },
-                _ => {
-                    panic!("impossible code with cell type: {}", descriptor.0);
-                }
-            };
-        }
+        let prefix = if descriptor.0 == Cell::KEY_PFX {
+            Some(self.cur[1])
+        } else {
+            None
+        };
 
         None
     }
@@ -97,29 +95,16 @@ impl CellDescriptor {
     }
 
     #[inline]
-    fn get_type(&self) -> CellType {
-        let mut t = self.0;
+    fn get_raw_type(&self) -> u8 {
+        let mut ret = self.0;
         if self.is_short_type() {
-            FP_BIT_MSK!(t, Cell::SHORT_TYPE_MASK);
-            CellType::Short(CellTypeShort(t))
+            FP_BIT_MSK!(ret, Cell::SHORT_TYPE_MASK);
         } else {
-            FP_BIT_MSK!(t, Cell::LONG_TYPE_MASK);
-            CellType::Long(CellTypeLong(t))
+            FP_BIT_MSK!(ret, Cell::LONG_TYPE_MASK);
         }
+        ret
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-enum CellType {
-    Short(CellTypeShort),
-    Long(CellTypeLong),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct CellTypeShort(u8);
-
-#[derive(Debug, Clone, PartialEq)]
-struct CellTypeLong(u8);
 
 pub(crate) enum Cell {
     KV(CellKV),
