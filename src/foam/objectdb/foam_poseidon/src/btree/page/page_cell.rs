@@ -12,18 +12,19 @@ pub(super) struct CellReader<'a> {
     page_header: PageHeaderV2,
     start: &'a [u8],
     cur: &'a [u8],
-    cell_descriptor: CellDescriptor,
+    read_cells: u32,
+    offset: usize,
 }
 
 impl<'a> CellReader<'a>  {
 
     pub(crate) fn new(buffer: &'a [u8], page_header: PageHeaderV2) -> CellReader<'a>{
-        let cell_descriptor= CellDescriptor(buffer[0]);
         Self {
             start: buffer,
-            cur: &buffer[1..],
+            cur: buffer,
             page_header,
-            cell_descriptor,
+            read_cells: 0,
+            offset: 0,
         }
     }
 }
@@ -32,6 +33,56 @@ impl Iterator for CellReader<'_> {
     type Item = Cell;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.cur.len() == 0 || self.read_cells == self.page_header.cells_or_flowlen {
+            return None;
+        }
+
+        let descriptor = CellDescriptor(self.cur[0]);
+
+        let cell_type = descriptor.get_type();
+
+        if descriptor.is_short_type() {
+            match cell_type {
+                CellType::Short(c) => {
+                    match c.0 {
+                        Cell::SHORT_KEY_PFX => {
+                            let prefix = self.cur[1];
+                            let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+                            /* skip lifetime check. */
+                            let data =  unsafe { &*(&self.cur[2..] as *const [u8]) };
+                            let cell =  unsafe { &*(&self.cur[..2+size] as *const [u8]) };
+                            return Some(Cell::KV(CellKV{
+                                data: CellData::InPage(CellDataIn{
+                                    cell,
+                                    data,
+                                    prefix: Some(prefix),
+                                })
+                            }))
+                        },
+                        Cell::SHORT_KEY | Cell::SHORT_VALUE => {
+                            let prefix = 0u8;
+                            let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+                            let data =  unsafe { &*(&self.cur[1..] as *const [u8]) };
+                            let cell =  unsafe { &*(&self.cur[..1+size] as *const [u8]) };
+                            return Some(Cell::KV(CellKV{
+                                data: CellData::InPage(CellDataIn{
+                                    cell,
+                                    data,
+                                    prefix: None,
+                                })
+                            }))
+                        },
+                        _ => {
+                            panic!("impossible code with cell type: {}", c.0);
+                        }
+                    };
+                },
+                _ => {
+                    panic!("impossible code with cell type: {}", descriptor.0);
+                }
+            };
+        }
+
         None
     }
 }
@@ -104,10 +155,9 @@ impl Cell {
 }
 
 struct CellDataIn {
-    offset: usize,       /* Offset to the starting position of cell in page.  */
     cell: &'static [u8],
     data: &'static[u8],
-    prefix: Option<&'static[u8]>,
+    prefix: Option<u8>,
 }
 
 struct CellDataOff {
@@ -122,12 +172,12 @@ enum CellData {
 /* Implement TryFrom */
 pub(crate) struct CellKV {
     data: CellData,
-    mvcc_meta: PageKVTS,
+    // mvcc_meta: PageKVTS,
 }
 
 pub(crate) struct CellAddr {
     data: CellData,
-    mvcc_meta: PageAddrTS,
+    // mvcc_meta: PageAddrTS,
 }
 
 #[cfg(test)]
