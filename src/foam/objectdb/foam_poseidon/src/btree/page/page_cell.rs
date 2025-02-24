@@ -76,8 +76,10 @@ impl Iterator for CellReader<'_> {
         };
 
         let prefix = if raw_type == Cell::KEY_PFX {
+            self.cur = &self.cur[2..];
             Some(self.cur[1])
         } else {
+            self.cur = &self.cur[1..];
             None
         };
 
@@ -87,10 +89,15 @@ impl Iterator for CellReader<'_> {
 
             },
             Cell::KV_DEL | Cell::VALUE | Cell::VALUE_COPY | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL => {
-                
+
             }
             _ => {}
         }
+
+        //NEED TODO: fast-truncate.
+        //NEED TODO: column Run-Length Encoding.
+
+        
 
         None
     }
