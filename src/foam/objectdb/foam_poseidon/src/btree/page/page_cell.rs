@@ -2,6 +2,8 @@
 
 use crate::FP_BIT_IST;
 
+use super::page_metas::{PageAddrTS, PageKVTS};
+
 /**
  * In-page tuple header reference.
  */
@@ -73,14 +75,16 @@ enum CellData {
     OffPage(CellDataOff),
 }
 
+/* Implement TryFrom */
 struct CellKV {
     data: CellData,
+    mvcc_meta: PageKVTS,
 }
 
 struct CellAddr {
     data: CellData,
+    mvcc_meta: PageAddrTS,
 }
-
 
 #[cfg(test)]
 mod tests {
