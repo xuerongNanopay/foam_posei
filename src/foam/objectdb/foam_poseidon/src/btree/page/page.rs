@@ -44,8 +44,7 @@ impl Page {
                     page_header.cells_or_flowlen/2
                 } else {
                     /* Need to interate page to calculate tuple numbers */
-                    Self::row_leaf_cells(&inner);
-                    0
+                    Self::row_leaf_key_cells(&inner)
                 }
             },
             _ => return Err(FP_BTREE_PAGE_TYPE_ILL),
@@ -57,20 +56,23 @@ impl Page {
         })
     }
 
-    fn row_leaf_cells(page_raw: &PageRaw) {
+    fn row_leaf_key_cells(page_raw: &PageRaw) -> u32 {
         let page_header = page_raw.page_header();
         let mut reader = page_raw.cell_reader();
-
+        let mut ret = 0u32;
         while let Some(cell) = reader.next() {
             match cell {
                 Cell::KV(c) => {
-
+                    if matches!(c.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                        ret += 1;
+                    }
                 },
                 _ => {
                     panic!("impossible code");
                 }
             }
-        }
+        };
+        ret
     }
 }
 

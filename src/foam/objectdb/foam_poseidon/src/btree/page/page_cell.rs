@@ -223,30 +223,30 @@ pub(crate) enum Cell {
 }
 
 impl Cell {
-    const SHORT_TYPE_MASK:u8 = 0x03;
-    const LONG_TYPE_MASK:u8  = 0xf0;
+    pub(super) const SHORT_TYPE_MASK:u8 = 0x03;
+    pub(super) const LONG_TYPE_MASK:u8  = 0xf0;
 
-    const SHORT_MAX_LEN:usize   = 63;
-    const SHORT_SHIFT:u8        = 2;
+    pub(super) const SHORT_MAX_LEN:usize   = 63;
+    pub(super) const SHORT_SHIFT:u8        = 2;
 
-    const SHORT_KEY:     u8 = 0x01;
-    const SHORT_KEY_PFX: u8 = 0x02;
-    const SHORT_VALUE:   u8 = 0x03;
+    pub(super) const SHORT_KEY:     u8 = 0x01;
+    pub(super) const SHORT_KEY_PFX: u8 = 0x02;
+    pub(super) const SHORT_VALUE:   u8 = 0x03;
 
-    const ADDR_DEL:      u8 = 0;
-    const ADDR_INTERNAL: u8 = 1 << 4;
-    const ADDR_LEAF:     u8 = 2 << 4;
-    const ADDR_LEAF_NO:  u8 = 3 << 4;
+    pub(super) const ADDR_DEL:      u8 = 0;
+    pub(super) const ADDR_INTERNAL: u8 = 1 << 4;
+    pub(super) const ADDR_LEAF:     u8 = 2 << 4;
+    pub(super) const ADDR_LEAF_NO:  u8 = 3 << 4;
 
-    const KV_DEL:        u8 = 4 << 4;
-    const KEY:           u8 = 5 << 4;
-    const KEY_OVFL:      u8 = 6 << 4;
-    const KEY_PFX:       u8 = 7 << 4;
-    const VALUE:         u8 = 8 << 4;
-    const VALUE_OVFL:    u8 = 9 << 4;
-    const VALUE_COPY:    u8 = 10 << 4;
-    const KEY_OVFL_DEL:  u8 = 11 << 4;
-    const VALUE_OVFL_DEL:u8 = 12 << 4;
+    pub(super) const KV_DEL:        u8 = 4 << 4;
+    pub(super) const KEY:           u8 = 5 << 4;
+    pub(super) const KEY_OVFL:      u8 = 6 << 4;
+    pub(super) const KEY_PFX:       u8 = 7 << 4;
+    pub(super) const VALUE:         u8 = 8 << 4;
+    pub(super) const VALUE_OVFL:    u8 = 9 << 4;
+    pub(super) const VALUE_COPY:    u8 = 10 << 4;
+    pub(super) const KEY_OVFL_DEL:  u8 = 11 << 4;
+    pub(super) const VALUE_OVFL_DEL:u8 = 12 << 4;
     
 }
 
@@ -272,6 +272,18 @@ pub(crate) struct CellKV {
     raw_type: u8,
     r#type: u8,
     // mvcc_meta: PageKVTS,
+}
+
+impl CellKV {
+    pub(super) fn raw_type(&self) -> u8 {
+        self.raw_type
+    }
+    pub(super) fn is_overflow(&self) -> bool {
+        self.is_overflow
+    }
+    pub(super) fn r#type(&self) -> u8 {
+        self.r#type
+    }
 }
 
 
