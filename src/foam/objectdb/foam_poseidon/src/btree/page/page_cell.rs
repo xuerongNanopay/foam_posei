@@ -134,7 +134,7 @@ impl Iterator for CellReader<'_> {
                 let data =  unsafe { &*(&self.cur[..size as usize] as *const [u8]) };
                 let cell =  unsafe { &*(&begin_cur[..size as usize + offset] as *const [u8]) };
                 self.cur = &self.cur[..size as usize];
-                
+
                 Some(Cell::KV(CellKV{
                     is_overflow,
                     data: CellData::InPage(CellDataIn{
@@ -145,12 +145,23 @@ impl Iterator for CellReader<'_> {
                 }))
             },
             Cell::KV_DEL => {
-                None
+                let data =  unsafe { &*(&self.cur[0..0] as *const [u8]) };
+                let cell =  unsafe { &*(&begin_cur[..offset] as *const [u8]) };
+                Some(Cell::KV(CellKV{
+                    is_overflow: false,
+                    data: CellData::InPage(CellDataIn{
+                        cell,
+                        data,
+                        prefix,
+                    })
+                }))
             },
             _ => {
                 panic!("impossible code")
             },
         };
+
+        self.read_cells += 1;
 
         ret
     }
