@@ -6,8 +6,9 @@ use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageType
 
 
 struct Page {
-    inner: PageRaw,
-    page_header: PageHeaderV2,
+    raw: PageRaw,
+    header: PageHeaderV2,
+    // inner: PageInner,
 }
 
 /**
@@ -15,7 +16,7 @@ struct Page {
  */
 impl Page {
     fn page_type(&self) -> PageTypeV2 {
-        self.page_header.r#type
+        self.header.r#type
     }
 }
 
@@ -23,14 +24,16 @@ impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
     fn new(raw_page: Vec<u8>) -> FPResult<Self> {
-        let inner = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
-        let page_header = inner.page_header();
+        let raw = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_header = raw.page_header();
 
-        let mut page_tuples: u32 = Self::key_cells(&inner, &page_header)?;
+        let mut page_tuples: u32 = Self::key_cells(&raw, &page_header)?;
+
+        /* Allocate page */
 
         Ok(Self {
-            page_header,
-            inner,
+            header: page_header,
+            raw,
         })
     }
 
@@ -115,6 +118,17 @@ impl PageRaw {
     fn page_header(&self) -> PageHeaderV2 {
         self.raw_page_header.get_from_raw()
     }
+}
+
+enum PageInner {
+    Internal(u8),
+    RowLeaf(u8),
+    ColVar(u8),
+    ColFix(u8),
+}
+
+struct PageInternal {
+    
 }
 
 #[cfg(test)]
