@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::{btree::buf, internal::{FPErr, FPResult}, FP_BIT_IST, FP_BIT_MSK};
+use crate::{btree::buf, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
 
 use super::{page_metas::{PageAddrTS, PageKVTS}, PageHeaderV2};
 
@@ -73,15 +73,21 @@ impl Iterator for CellReader<'_> {
                 }))
             },
             _ => {
-               /* Long Type */
+               /* Normal Type */
             }
         };
 
+        let begin_cur = self.cur;
+        let mut offset = 0usize;
+
+        /* Normal type parsing. */
         let prefix = if raw_type == Cell::KEY_PFX {
             self.cur = &self.cur[2..];
+            offset += 2;
             Some(self.cur[1])
         } else {
             self.cur = &self.cur[1..];
+            offset += 1;
             None
         };
 
@@ -94,31 +100,59 @@ impl Iterator for CellReader<'_> {
 
             }
             _ => {}
-        }
+        };
 
         //NEED TODO: fast-truncate.
         //NEED TODO: column Run-Length Encoding.
 
-        match raw_type {
+        let ret = match raw_type {
             Cell::VALUE_COPY => {
-
+                //FEAT TODO: performace on disk space.
+                //store previous no copy value.
+                None
             },
             Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL |
             Cell::ADDR_DEL | Cell::ADDR_INTERNAL | Cell::ADDR_LEAF | Cell::ADDR_LEAF_NO |
             Cell::KEY | Cell::KEY_PFX | Cell::VALUE => {
+                let mut is_overflow = false;
                 if matches!(raw_type, Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL)  {
-
+                    is_overflow = true;
                 }
+
+                let (size, off) = varint::decode_uint(self.cur).unwrap();
+                let mut size = size as u32;
+                if cfg!(target_endian = "big") { 
+                    size = FP_BIT_REVERSE_32!(size);
+                }
+
+                self.cur = &self.cur[off..];
+                offset += off;
+
+                //FEAT TODO: reduce size field size on disk.
+
+                
+                let data =  unsafe { &*(&self.cur[..size as usize] as *const [u8]) };
+                let cell =  unsafe { &*(&begin_cur[..size as usize + offset] as *const [u8]) };
+                self.cur = &self.cur[..size as usize];
+                
+                Some(Cell::KV(CellKV{
+                    is_overflow,
+                    data: CellData::InPage(CellDataIn{
+                        cell,
+                        data,
+                        prefix,
+                    })
+                }))
             },
             Cell::KV_DEL => {
-
-            }
+                None
+            },
             _ => {
                 panic!("impossible code")
-            }
-        }
+            },
+        };
 
-        None
+        ret
     }
 }
 
