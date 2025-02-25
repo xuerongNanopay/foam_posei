@@ -26,7 +26,17 @@ impl Page {
         let inner = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
         let page_header = inner.page_header();
 
-        let mut page_tuples: u32 = match page_header.r#type {
+        let mut page_tuples: u32 = Self::key_cells(&inner, &page_header)?;
+
+        Ok(Self {
+            page_header,
+            inner,
+        })
+    }
+
+    fn key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> FPResult<u32> {
+        let page_header = page_raw.page_header();
+        let page_tuples = match page_header.r#type {
             PageTypeV2::ColLeafVar | PageTypeV2::ColLeafFix => {
                 page_header.cells_or_flowlen
             },
@@ -44,20 +54,15 @@ impl Page {
                     page_header.cells_or_flowlen/2
                 } else {
                     /* Need to interate page to calculate tuple numbers */
-                    Self::row_leaf_key_cells(&inner)
+                    Self::row_leaf_key_cells(page_raw, &page_header)
                 }
             },
             _ => return Err(FP_BTREE_PAGE_TYPE_ILL),
         };
-
-        Ok(Self {
-            page_header,
-            inner,
-        })
+        Ok(page_tuples)
     }
 
-    fn row_leaf_key_cells(page_raw: &PageRaw) -> u32 {
-        let page_header = page_raw.page_header();
+    fn row_leaf_key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> u32 {
         let mut reader = page_raw.cell_reader();
         let mut ret = 0u32;
         while let Some(cell) = reader.next() {
