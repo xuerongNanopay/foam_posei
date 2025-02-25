@@ -2,7 +2,7 @@
 
 use crate::{error::FP_BTREE_PAGE_TYPE_ILL, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, CellReader, PageHeaderRaw, PageHeaderV2, PageType, PageTypeV2};
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageType, PageTypeV2};
 
 
 struct Page {
@@ -22,9 +22,9 @@ impl Page {
 impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
-    fn new(raw_data: Vec<u8>) -> FPResult<Self> {
-        let inner = PageRaw::new(raw_data, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
-        let page_header = inner.page_header_raw.get_from_raw();
+    fn new(raw_page: Vec<u8>) -> FPResult<Self> {
+        let inner = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_header = inner.page_header();
 
         let mut page_tuples: u32 = match page_header.r#type {
             PageTypeV2::ColLeafVar | PageTypeV2::ColLeafFix => {
@@ -44,6 +44,7 @@ impl Page {
                     page_header.cells_or_flowlen/2
                 } else {
                     /* Need to interate page to calculate tuple numbers */
+                    Self::row_leaf_cells(&inner);
                     0
                 }
             },
@@ -55,33 +56,57 @@ impl Page {
             inner,
         })
     }
+
+    fn row_leaf_cells(page_raw: &PageRaw) {
+        let page_header = page_raw.page_header();
+        let mut reader = page_raw.cell_reader();
+
+        while let Some(cell) = reader.next() {
+            match cell {
+                Cell::KV(c) => {
+
+                },
+                _ => {
+                    panic!("impossible code");
+                }
+            }
+        }
+    }
 }
 
 struct PageRaw {
     page_header_offset: usize,
     cell_offset: usize,
-    page_header_raw: &'static PageHeaderRaw,
-    raw_data: Vec<u8>,
+    raw_page_header: &'static PageHeaderRaw,
+    raw_page: Vec<u8>,
 }
 
 impl PageRaw {
-    fn new(raw_data: Vec<u8>, page_header_offset: usize, cell_offset: usize) -> FPResult<Self> {
-        let buffer = &raw_data[..];
-        let (size, page_header_raw) = PageHeaderRaw::deserialize(buffer)?;
+    fn new(raw_page: Vec<u8>, page_header_offset: usize, cell_offset: usize) -> FPResult<Self> {
+        let buffer = &raw_page[..];
+        let (size, raw_page_header) = PageHeaderRaw::deserialize(buffer)?;
 
         let buffer = &buffer[size..];
 
         Ok(Self {
             page_header_offset,
             cell_offset,
-            page_header_raw,
-            raw_data,
+            raw_page_header,
+            raw_page,
         })
     }
 
-    fn get_cell_reader(&self) -> CellReader {
-        let page_header = self.page_header_raw.get_from_raw();
-        CellReader::new(&self.raw_data[self.cell_offset..], page_header)
+    fn cell_reader(&self) -> CellReader {
+        let page_header = self.raw_page_header.get_from_raw();
+        CellReader::new(&self.raw_page[self.cell_offset..], page_header)
+    }
+
+    fn raw_page(&self) -> &[u8] {
+        &self.raw_page[..]
+    }
+
+    fn page_header(&self) -> PageHeaderV2 {
+        self.raw_page_header.get_from_raw()
     }
 }
 

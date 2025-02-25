@@ -48,6 +48,8 @@ impl Iterator for CellReader<'_> {
                 self.cur = &self.cur[2+size..];
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
+                    raw_type,
+                    r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
@@ -64,6 +66,8 @@ impl Iterator for CellReader<'_> {
                 self.cur = &self.cur[1+size..];
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
+                    raw_type,
+                    r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
@@ -136,6 +140,8 @@ impl Iterator for CellReader<'_> {
                 self.cur = &self.cur[..size as usize];
 
                 Some(Cell::KV(CellKV{
+                    raw_type,
+                    r#type: descriptor.get_collapse_type(),
                     is_overflow,
                     data: CellData::InPage(CellDataIn{
                         cell,
@@ -148,6 +154,8 @@ impl Iterator for CellReader<'_> {
                 let data =  unsafe { &*(&self.cur[0..0] as *const [u8]) };
                 let cell =  unsafe { &*(&begin_cur[..offset] as *const [u8]) };
                 Some(Cell::KV(CellKV{
+                    raw_type,
+                    r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
@@ -185,6 +193,27 @@ impl CellDescriptor {
             FP_BIT_MSK!(ret, Cell::LONG_TYPE_MASK);
         }
         ret
+    }
+
+    #[inline]
+    fn get_collapse_type(&self) -> u8 {
+        let raw_type = self.get_raw_type();
+
+        match raw_type {
+            Cell::SHORT_KEY | Cell::SHORT_KEY_PFX | Cell::KEY_PFX => {
+                Cell::KEY
+            },
+            Cell::SHORT_VALUE => {
+                Cell::VALUE
+            },
+            Cell::KEY_OVFL_DEL => {
+                Cell::KEY_OVFL
+            },
+            Cell::VALUE_OVFL_DEL => {
+                Cell::VALUE_OVFL
+            }
+            _ => {raw_type}
+        }
     }
 }
 
@@ -240,8 +269,11 @@ enum CellData {
 pub(crate) struct CellKV {
     data: CellData,
     is_overflow: bool,
+    raw_type: u8,
+    r#type: u8,
     // mvcc_meta: PageKVTS,
 }
+
 
 pub(crate) struct CellAddr {
     data: CellData,
