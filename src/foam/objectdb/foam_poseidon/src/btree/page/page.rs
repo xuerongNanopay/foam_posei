@@ -1,11 +1,11 @@
 #![allow(unused)]
 
-use crate::{error::FP_BTREE_PAGE_TYPE_ILL, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
+use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
 use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageType, PageTypeV2};
 
 
-struct Page {
+pub(super) struct Page {
     raw: PageRaw,
     header: PageHeaderV2,
     // inner: PageInner,
@@ -20,14 +20,17 @@ impl Page {
     }
 }
 
+/**
+ * Construct a page from buffer/disk page.
+ */
 impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
-    fn new(raw_page: Vec<u8>) -> FPResult<Self> {
+    fn new_with_raw(raw_page: Vec<u8>) -> FPResult<Self> {
         let raw = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
         let page_header = raw.page_header();
 
-        let mut page_tuples: u32 = Self::key_cells(&raw, &page_header)?;
+        let mut key_cells: u32 = Self::key_cells(&raw, &page_header)?;
 
         /* Allocate page */
 
@@ -35,6 +38,17 @@ impl Page {
             header: page_header,
             raw,
         })
+    }
+
+    fn construct_inner(page_raw: &PageRaw, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
+        match page_header.r#type {
+            PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
+
+            },
+            _ => return Err(FP_BTREE_PAGE_TYPE_ILL),
+        };
+
+        Err(FP_NO_IMPL)
     }
 
     fn key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> FPResult<u32> {
@@ -120,15 +134,22 @@ impl PageRaw {
     }
 }
 
-enum PageInner {
+enum Inner {
     Internal(u8),
     RowLeaf(u8),
     ColVar(u8),
     ColFix(u8),
 }
 
-struct PageInternal {
-    
+struct InternalPage {
+    split_epoch: u64,
+    keys: u32,
+    // parent
+
+}
+
+struct InternalIndex {
+
 }
 
 #[cfg(test)]
