@@ -9,7 +9,7 @@ enum RefKey {
     Row(&'static [u8]),
 }
 
-struct PageRef {
+pub(super) struct PageRef {
     page: Option<Arc<PageV2>>,
     home: Weak<PageV2>,
     is_leaf: bool,

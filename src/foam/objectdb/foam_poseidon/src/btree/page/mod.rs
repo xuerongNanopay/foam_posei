@@ -5,6 +5,7 @@ use page_type::{PageType as PageTypeV2};
 use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
 use page_cell::{CellReader, Cell, CellKV, CellAddr};
 use page::{Page as PageV2};
+use page_ref::{PageRef as PageRefV2};
 
 mod page;
 mod page_header;

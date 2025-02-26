@@ -1,12 +1,14 @@
 #![allow(unused)]
 
+use std::sync::Arc;
+
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageType, PageTypeV2};
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageIndex, PageRefV2, PageType, PageTypeV2};
 
 
 pub(super) struct Page {
-    raw: PageRaw,
+    raw: Option<PageRaw>,
     header: PageHeaderV2,
     // inner: PageInner,
 }
@@ -33,19 +35,46 @@ impl Page {
         let mut key_cells: u32 = Self::key_cells(&raw, &page_header)?;
 
         /* Allocate page */
+        let inner = match page_header.r#type {
+            PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
+               let index =  InternalIndex {
+                    keys: key_cells,
+                    delete_keys: 0,
+                    /* TODO: We can Allocate more. */
+                    index: Vec::<Arc<PageRefV2>>::with_capacity(key_cells as usize),
+                };
+                Inner::Internal(InternalPage{
+                    split_epoch: 0,
+                    index,
+                })
+            },
+            // PageTypeV2::RowLeaf => {
+
+            // },
+            _ => return Err(FP_NO_IMPL),
+        };
+
 
         Ok(Self {
             header: page_header,
-            raw,
+            raw: Some(raw),
         })
     }
 
     fn construct_inner(page_raw: &PageRaw, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
         match page_header.r#type {
             PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
+                let internal_index = InternalIndex {
+                    keys: key_cells,
+                    delete_keys: 0,
+                    /* TODO: We can Allocate more. */
+                    index: Vec::<Arc<PageRefV2>>::with_capacity(key_cells as usize),
+                };
+            },
+            PageTypeV2::RowLeaf => {
 
             },
-            _ => return Err(FP_BTREE_PAGE_TYPE_ILL),
+            _ => return Err(FP_NO_IMPL),
         };
 
         Err(FP_NO_IMPL)
@@ -135,7 +164,7 @@ impl PageRaw {
 }
 
 enum Inner {
-    Internal(u8),
+    Internal(InternalPage),
     RowLeaf(u8),
     ColVar(u8),
     ColFix(u8),
@@ -143,13 +172,14 @@ enum Inner {
 
 struct InternalPage {
     split_epoch: u64,
-    keys: u32,
     // parent
-
+    index: InternalIndex,
 }
 
 struct InternalIndex {
-
+    keys: u32,
+    delete_keys: u32,
+    index: Vec<Arc<PageRefV2>>,
 }
 
 #[cfg(test)]
