@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRefV2, PageTypeV2};
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageType};
 
 
 pub(super) struct Page {
@@ -17,7 +17,7 @@ pub(super) struct Page {
  * Getter and Setter.
  */
 impl Page {
-    fn page_type(&self) -> PageTypeV2 {
+    fn page_type(&self) -> PageType {
         self.header.r#type
     }
 }
@@ -36,12 +36,12 @@ impl Page {
 
         /* Allocate page */
         let mut inner = match page_header.r#type {
-            PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
+            PageType::ColInternal | PageType::RowInternal => {
                let index =  InternalIndex {
                     keys: key_cells,
                     delete_keys: 0,
                     /* TODO: We can Allocate more. */
-                    index: Vec::<Arc<PageRefV2>>::with_capacity(key_cells as usize),
+                    index: Vec::<Arc<PageRef>>::with_capacity(key_cells as usize),
                 };
 
                 Inner::Internal(InternalPage{
@@ -49,7 +49,7 @@ impl Page {
                     index,
                 })
             },
-            // PageTypeV2::RowLeaf => {
+            // PageType::RowLeaf => {
 
             // },
             _ => return Err(FP_NO_IMPL),
@@ -67,15 +67,15 @@ impl Page {
 
     fn construct_inner(page_raw: &PageRaw, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
         match page_header.r#type {
-            PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
+            PageType::ColInternal | PageType::RowInternal => {
                 let internal_index = InternalIndex {
                     keys: key_cells,
                     delete_keys: 0,
                     /* TODO: We can Allocate more. */
-                    index: Vec::<Arc<PageRefV2>>::with_capacity(key_cells as usize),
+                    index: Vec::<Arc<PageRef>>::with_capacity(key_cells as usize),
                 };
             },
-            PageTypeV2::RowLeaf => {
+            PageType::RowLeaf => {
 
             },
             _ => return Err(FP_NO_IMPL),
@@ -104,17 +104,17 @@ impl Page {
     fn key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> FPResult<u32> {
         let page_header = page_raw.page_header();
         let page_tuples = match page_header.r#type {
-            PageTypeV2::ColLeafVar | PageTypeV2::ColLeafFix => {
+            PageType::ColLeafVar | PageType::ColLeafFix => {
                 page_header.cells_or_flowlen
             },
-            PageTypeV2::ColInternal => {
+            PageType::ColInternal => {
                 //MUST TODO: check if gap: __wti_page_inmem.
                 page_header.cells_or_flowlen
             },
-            PageTypeV2::RowInternal => {
+            PageType::RowInternal => {
                 page_header.cells_or_flowlen/2
             },
-            PageTypeV2::RowLeaf => {
+            PageType::RowLeaf => {
                 if FP_BIT_IST!(page_header.flags, PageHeaderV2::FLAG_ROW_LEAF_VALUE_EMPTY_ALL) {
                     page_header.cells_or_flowlen
                 } else if FP_BIT_IST!(page_header.flags, PageHeaderV2::FLAG_ROW_LEAF_VALUE_EMPTY_NONE) {
@@ -200,7 +200,7 @@ struct InternalPage {
 struct InternalIndex {
     keys: u32,
     delete_keys: u32,
-    index: Vec<Arc<PageRefV2>>,
+    index: Vec<Arc<PageRef>>,
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 
 use crate::{error::FP_BTREE_PAGE_HEADER_LEN_ILL, internal::FPResult, FP_ASSERT, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::PageTypeV2;
+use super::PageType;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,7 +11,7 @@ pub(super) struct PageHeader {
     pub(super) write_epoch: u64,
     pub(super) in_memory_size: u32,
     pub(super) cells_or_flowlen: u32,
-    pub(super) r#type: PageTypeV2,
+    pub(super) r#type: PageType,
     pub(super) flags: u8,
     pub(super) unused: u8,
     pub(super) version: u8,
@@ -72,7 +72,7 @@ impl PageHeaderRaw {
             } else {
                 self.cells_or_flowlen
             },
-            r#type: PageTypeV2::try_from_code(self.r#type).unwrap(),
+            r#type: PageType::try_from_code(self.r#type).unwrap(),
             flags: self.flags,
             unused: self.unused,
             version: self.version,

@@ -2,7 +2,7 @@
 
 use std::{rc::Weak, sync::{atomic::AtomicU8, Arc}};
 
-use super::PageV2;
+use super::Page;
 
 enum RefKey {
     Col(u64),
@@ -10,8 +10,8 @@ enum RefKey {
 }
 
 pub(super) struct PageRef {
-    page: Option<Arc<PageV2>>,
-    home: Weak<PageV2>,
+    page: Option<Arc<Page>>,
+    home: Weak<Page>,
     is_leaf: bool,
 
     load_state: AtomicU8,
