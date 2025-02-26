@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageIndex, PageRefV2, PageType, PageTypeV2};
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRefV2, PageTypeV2};
 
 
 pub(super) struct Page {
@@ -35,7 +35,7 @@ impl Page {
         let mut key_cells: u32 = Self::key_cells(&raw, &page_header)?;
 
         /* Allocate page */
-        let inner = match page_header.r#type {
+        let mut inner = match page_header.r#type {
             PageTypeV2::ColInternal | PageTypeV2::RowInternal => {
                let index =  InternalIndex {
                     keys: key_cells,
@@ -43,6 +43,7 @@ impl Page {
                     /* TODO: We can Allocate more. */
                     index: Vec::<Arc<PageRefV2>>::with_capacity(key_cells as usize),
                 };
+
                 Inner::Internal(InternalPage{
                     split_epoch: 0,
                     index,
@@ -54,6 +55,9 @@ impl Page {
             _ => return Err(FP_NO_IMPL),
         };
 
+        if let Inner::Internal(page) = &mut inner {
+
+        }
 
         Ok(Self {
             header: page_header,
@@ -78,6 +82,23 @@ impl Page {
         };
 
         Err(FP_NO_IMPL)
+    }
+
+    fn construct_row_internal(page_raw: &PageRaw) {
+        let mut reader = page_raw.cell_reader();
+        let hint = 0u32;
+
+        while let Some(cell) = reader.next() {
+            match cell {
+                Cell::KV(kv) => {
+                    if matches!(kv.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                    }
+                },
+                Cell::Addr(addr) => {
+                //    match a 
+                }
+            }
+        };
     }
 
     fn key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> FPResult<u32> {

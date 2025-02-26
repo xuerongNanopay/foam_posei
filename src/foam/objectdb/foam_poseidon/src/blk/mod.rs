@@ -2,7 +2,7 @@
 
 use meta::BlkHeader;
 
-use crate::{btree::page::PageHeader, meta::FP_METAFILE};
+use crate::{meta::FP_METAFILE};
 
 pub mod handle;
 mod pool;
@@ -78,7 +78,7 @@ pub(crate) struct BlkItem {
 
 impl BlkItem {
     pub(crate) fn blk_header(&self) -> BlkHeader {
-        let raw_blk_header = &self.mem[FP_SIZE_OF!(PageHeader)..];
+        let raw_blk_header = &self.mem[FP_SIZE_OF!(u8)..];
         BlkHeader::from(raw_blk_header)
     }
 }
