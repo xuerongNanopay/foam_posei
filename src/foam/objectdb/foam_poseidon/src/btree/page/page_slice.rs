@@ -50,3 +50,12 @@ impl PageSlice {
         self.data.to_vec()
     }
 }
+
+impl Deref for PageSlice {
+    type Target = [u8];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.data
+    }
+}
