@@ -7,20 +7,10 @@ use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_
 use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageSlice, PageType};
 
 pub(super) struct Page {
-    header: PageHeaderV2,
     disk: Option<PageDisk>, /* on-disk representation of a page. */
-
+    r#type: PageType,
     // inner: PageInner,
 
-}
-
-/**
- * Getter and Setter.
- */
-impl Page {
-    fn page_type(&self) -> PageType {
-        self.header.r#type
-    }
 }
 
 /**
@@ -61,7 +51,7 @@ impl Page {
         }
 
         Ok(Self {
-            header: page_header,
+            r#type: page_header.r#type,
             disk: Some(page_disk),
         })
     }
