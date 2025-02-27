@@ -7,10 +7,11 @@ use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_
 use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageSlice, PageType};
 
 pub(super) struct Page {
-    raw: Option<PageDisk>,
     header: PageHeaderV2,
+    disk: Option<PageDisk>, /* on-disk representation of a page. */
+
     // inner: PageInner,
-    disk: Option<PageSlice>, /* on-disk representation of a page. */
+
 }
 
 /**
@@ -28,11 +29,11 @@ impl Page {
 impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
-    fn new_with_raw(raw_page: Vec<u8>) -> FPResult<Self> {
-        let raw = PageDisk::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
-        let page_header = raw.header();
+    fn new_with_disk_page(disk_page: Vec<u8>) -> FPResult<Self> {
+        let page_disk = PageDisk::new(disk_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_header = page_disk.header();
 
-        let mut key_cells: u32 = Self::key_cells(&raw)?;
+        let mut key_cells: u32 = Self::key_cells(&page_disk)?;
 
         /* Allocate page */
         let mut inner = match page_header.r#type {
@@ -61,8 +62,7 @@ impl Page {
 
         Ok(Self {
             header: page_header,
-            raw: Some(raw),
-            disk: None,
+            disk: Some(page_disk),
         })
     }
 
