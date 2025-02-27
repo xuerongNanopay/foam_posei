@@ -11,7 +11,7 @@ pub(super) struct PageSlice {
 }
 
 impl PageSlice {
-    pub(crate) fn new(
+    pub(super) fn new(
         disk_page: Vec<u8>
     ) -> Self {
         let disk = Arc::new(disk_page);
@@ -27,7 +27,7 @@ impl PageSlice {
 
     #[inline]
     #[must_use]
-    pub(crate) fn slice(&self, range: Range<usize>) -> Self {
+    pub(super) fn slice(&self, range: Range<usize>) -> Self {
         Self {
             disk: Arc::clone(&self.disk),
             data: &self.data[range],
@@ -36,7 +36,7 @@ impl PageSlice {
 
     #[inline]
     #[must_use]
-    pub(crate) fn reset(&self) -> Self {
+    pub(super) fn reset(&self) -> Self {
         let disk = Arc::clone(&self.disk);
         let bytes:&[u8] = disk.deref();
         let data = unsafe { &*(bytes as *const [u8]) };
@@ -44,5 +44,9 @@ impl PageSlice {
             disk,
             data,
         }
+    }
+
+    pub(super) fn owned_value(&self) -> Vec<u8> {
+        self.data.to_vec()
     }
 }
