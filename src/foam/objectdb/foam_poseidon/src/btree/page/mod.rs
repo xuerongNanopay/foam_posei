@@ -13,6 +13,7 @@ mod page_type;
 mod page_cell;
 mod page_metas;
 mod page_ref;
+mod page_slice;
 
 // use std::{mem::ManuallyDrop, ptr, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
