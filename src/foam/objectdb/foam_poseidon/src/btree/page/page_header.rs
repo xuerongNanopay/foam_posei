@@ -5,7 +5,7 @@ use crate::{error::FP_BTREE_PAGE_HEADER_LEN_ILL, internal::FPResult, FP_ASSERT, 
 use super::PageType;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct PageHeader {
     pub(super) column_number: u64,
     pub(super) write_epoch: u64,

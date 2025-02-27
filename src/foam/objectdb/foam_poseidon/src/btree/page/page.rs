@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageType};
-
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageSlice, PageType};
 
 pub(super) struct Page {
-    raw: Option<PageRaw>,
+    raw: Option<PageDisk>,
     header: PageHeaderV2,
     // inner: PageInner,
+    disk: Option<PageSlice>, /* on-disk representation of a page. */
 }
 
 /**
@@ -29,10 +29,10 @@ impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
     fn new_with_raw(raw_page: Vec<u8>) -> FPResult<Self> {
-        let raw = PageRaw::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
-        let page_header = raw.page_header();
+        let raw = PageDisk::new(raw_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_header = raw.header();
 
-        let mut key_cells: u32 = Self::key_cells(&raw, &page_header)?;
+        let mut key_cells: u32 = Self::key_cells(&raw)?;
 
         /* Allocate page */
         let mut inner = match page_header.r#type {
@@ -62,10 +62,11 @@ impl Page {
         Ok(Self {
             header: page_header,
             raw: Some(raw),
+            disk: None,
         })
     }
 
-    fn construct_inner(page_raw: &PageRaw, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
+    fn construct_inner(page_raw: &PageDisk, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
         match page_header.r#type {
             PageType::ColInternal | PageType::RowInternal => {
                 let internal_index = InternalIndex {
@@ -84,7 +85,7 @@ impl Page {
         Err(FP_NO_IMPL)
     }
 
-    fn construct_row_internal(page_raw: &PageRaw) {
+    fn construct_row_internal(page_raw: &PageDisk) {
         let mut reader = page_raw.cell_reader();
         let hint = 0u32;
 
@@ -101,8 +102,8 @@ impl Page {
         };
     }
 
-    fn key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> FPResult<u32> {
-        let page_header = page_raw.page_header();
+    fn key_cells(page_raw: &PageDisk) -> FPResult<u32> {
+        let page_header = page_raw.header();
         let page_tuples = match page_header.r#type {
             PageType::ColLeafVar | PageType::ColLeafFix => {
                 page_header.cells_or_flowlen
@@ -129,7 +130,7 @@ impl Page {
         Ok(page_tuples)
     }
 
-    fn row_leaf_key_cells(page_raw: &PageRaw, page_header: &PageHeaderV2) -> u32 {
+    fn row_leaf_key_cells(page_raw: &PageDisk, page_header: &PageHeaderV2) -> u32 {
         let mut reader = page_raw.cell_reader();
         let mut ret = 0u32;
         while let Some(cell) = reader.next() {
@@ -148,39 +149,38 @@ impl Page {
     }
 }
 
-struct PageRaw {
-    page_header_offset: usize,
+struct PageDisk {
+    header_offset: usize,
     cell_offset: usize,
-    raw_page_header: &'static PageHeaderRaw,
-    raw_page: Vec<u8>,
+    header: PageHeaderV2,
+    raw: PageSlice,
 }
 
-impl PageRaw {
-    fn new(raw_page: Vec<u8>, page_header_offset: usize, cell_offset: usize) -> FPResult<Self> {
-        let buffer = &raw_page[..];
-        let (size, raw_page_header) = PageHeaderRaw::deserialize(buffer)?;
+impl PageDisk {
+    fn new(disk_page: Vec<u8>, header_offset: usize, cell_offset: usize) -> FPResult<Self> {
+        let (_, raw_page_header) = PageHeaderRaw::deserialize(&disk_page[..])?;
 
-        let buffer = &buffer[size..];
+        let raw = PageSlice::new(disk_page);
+        let header = raw_page_header.get_from_raw();
 
         Ok(Self {
-            page_header_offset,
+            header_offset,
             cell_offset,
-            raw_page_header,
-            raw_page,
+            header,
+            raw,
         })
     }
 
     fn cell_reader(&self) -> CellReader {
-        let page_header = self.raw_page_header.get_from_raw();
-        CellReader::new(&self.raw_page[self.cell_offset..], page_header)
+        CellReader::new(&self.raw[self.cell_offset..], self.header)
     }
 
-    fn raw_page(&self) -> &[u8] {
-        &self.raw_page[..]
+    fn cells(&self) -> &[u8] {
+        &self.raw[self.cell_offset..]
     }
 
-    fn page_header(&self) -> PageHeaderV2 {
-        self.raw_page_header.get_from_raw()
+    fn header(&self) -> PageHeaderV2 {
+        self.header
     }
 }
 
@@ -207,8 +207,10 @@ struct InternalIndex {
 mod tests {
     use super::*;
 
+    fn is_sync<T: Sync>() {}
+
     #[test]
     fn test_page() {
-
+        is_sync::<Page>();
     }
 }

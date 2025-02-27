@@ -6,6 +6,7 @@ use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
 use page_cell::{CellReader, Cell, CellKV, CellAddr};
 use page::{Page};
 use page_ref::{PageRef};
+use page_slice::{PageSlice};
 
 mod page;
 mod page_header;
