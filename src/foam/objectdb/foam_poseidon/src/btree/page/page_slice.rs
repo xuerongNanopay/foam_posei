@@ -33,4 +33,16 @@ impl PageSlice {
             data: &self.data[range],
         }
     }
+
+    #[inline]
+    #[must_use]
+    pub(crate) fn reset(&self) -> Self {
+        let disk = Arc::clone(&self.disk);
+        let bytes:&[u8] = disk.deref();
+        let data = unsafe { &*(bytes as *const [u8]) };
+        Self {
+            disk,
+            data,
+        }
+    }
 }
