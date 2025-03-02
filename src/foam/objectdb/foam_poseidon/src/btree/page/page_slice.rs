@@ -46,7 +46,7 @@ impl PageSlice {
         }
     }
 
-    pub(super) fn owned_value(&self) -> Vec<u8> {
+    pub(super) fn to_vec(&self) -> Vec<u8> {
         self.data.to_vec()
     }
 }
