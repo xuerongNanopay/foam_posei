@@ -27,7 +27,7 @@ impl PageSlice {
 
     #[inline]
     #[must_use]
-    pub(super) fn slice(&self, range: Range<usize>) -> Self {
+    pub(crate) fn slice(&self, range: Range<usize>) -> Self {
         Self {
             disk: Arc::clone(&self.disk),
             data: &self.data[range],

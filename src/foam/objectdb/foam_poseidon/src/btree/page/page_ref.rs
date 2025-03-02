@@ -10,8 +10,8 @@ enum RefKey {
 }
 
 pub(super) struct PageRef {
-    page: Option<Arc<Page>>,
     home: Weak<Page>,
+    page: Option<Arc<Page>>,
     is_leaf: bool,
 
     load_state: AtomicU8,

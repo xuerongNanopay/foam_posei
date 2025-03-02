@@ -36,6 +36,7 @@ impl Page {
                 };
 
                 Inner::Internal(InternalPage{
+                    // home: Some(),
                     split_epoch: 0,
                     index,
                 })
@@ -182,6 +183,7 @@ enum Inner {
 }
 
 struct InternalPage {
+    // home: Option<PageDisk>,
     split_epoch: u64,
     // parent
     index: InternalIndex,
