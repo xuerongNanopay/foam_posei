@@ -53,11 +53,11 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: TupleData::InPage(DiskTuple{
+                    data: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: Some(prefix),
-                    })
+                    }
                 }))
             },
             Tuple::SHORT_KEY | Tuple::SHORT_VALUE => {
@@ -71,11 +71,11 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: TupleData::InPage(DiskTuple{
+                    data: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: None,
-                    })
+                    }
                 }))
             },
             _ => {
@@ -141,11 +141,11 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow,
-                    data: TupleData::InPage(DiskTuple{
+                    data: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix,
-                    })
+                    }
                 }))
             },
             Tuple::KV_DEL => {
@@ -157,11 +157,11 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: TupleData::InPage(DiskTuple{
+                    data: DiskTuple{
                         cell,
                         data: None,
                         prefix,
-                    })
+                    }
                 }))
             },
             _ => {
@@ -257,14 +257,9 @@ struct DiskTuple {
 }
 
 
-enum TupleData {
-    InPage(DiskTuple),
-    OffPage(Vec<u8>),
-}
-
 /* Implement TryFrom */
 pub(crate) struct KVTuple {
-    data: TupleData,
+    data: DiskTuple,
     is_overflow: bool,
     raw_type: u8,
     r#type: u8,
@@ -285,7 +280,7 @@ impl KVTuple {
 
 
 pub(crate) struct AddrTuple {
-    data: TupleData,
+    data: DiskTuple,
     // mvcc_meta: PageAddrTS,
 }
 
