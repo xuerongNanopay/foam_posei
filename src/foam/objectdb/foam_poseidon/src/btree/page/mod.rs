@@ -6,7 +6,7 @@ use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
 use page_cell::{CellReader, Cell, CellKV, CellAddr};
 use page::{Page};
 use page_ref::{PageRef};
-use page_slice::{PageSlice};
+use page_disk::{DiskPage, DiskSlice};
 
 mod page;
 mod page_header;
@@ -14,7 +14,8 @@ mod page_type;
 mod page_cell;
 mod page_metas;
 mod page_ref;
-mod page_slice;
+mod page_internal;
+mod page_disk;
 
 // use std::{mem::ManuallyDrop, ptr, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 

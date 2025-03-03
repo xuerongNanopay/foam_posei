@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, PageSlice, PageType};
+use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, DiskSlice, PageType};
 
 pub(super) struct Page {
     disk: Option<PageDisk>, /* on-disk representation of a page. */
@@ -137,41 +137,6 @@ impl Page {
             }
         };
         ret
-    }
-}
-
-struct PageDisk {
-    header_offset: usize,
-    cell_offset: usize,
-    header: PageHeaderV2,
-    raw: PageSlice,
-}
-
-impl PageDisk {
-    fn new(disk_page: Vec<u8>, header_offset: usize, cell_offset: usize) -> FPResult<Self> {
-        let (_, raw_page_header) = PageHeaderRaw::deserialize(&disk_page[..])?;
-
-        let raw = PageSlice::new(disk_page);
-        let header = raw_page_header.get_from_raw();
-
-        Ok(Self {
-            header_offset,
-            cell_offset,
-            header,
-            raw,
-        })
-    }
-
-    fn cell_reader(&self) -> CellReader {
-        CellReader::new(&self.raw[self.cell_offset..], self.header)
-    }
-
-    fn cells(&self) -> &[u8] {
-        &self.raw[self.cell_offset..]
-    }
-
-    fn header(&self) -> PageHeaderV2 {
-        self.header
     }
 }
 

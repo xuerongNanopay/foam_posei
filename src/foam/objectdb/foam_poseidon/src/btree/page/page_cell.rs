@@ -2,50 +2,52 @@
 
 use crate::{btree::buf, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
 
-use super::{page_metas::{PageAddrTS, PageKVTS}, PageHeaderV2};
+use super::{page_metas::{PageAddrTS, PageKVTS}, DiskSlice, PageHeaderV2};
 
 /**
  * In-page tuple header reference.
  */
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct CellReader<'a> {
+#[derive(Clone)]
+pub(super) struct CellReader {
     page_header: PageHeaderV2,
-    start: &'a [u8],
-    cur: &'a [u8],
+    cur: usize,
+    disk_cells: DiskSlice,
     read_cells: u32,
 }
 
-impl<'a> CellReader<'a>  {
+impl<'a> CellReader  {
 
-    pub(crate) fn new(buffer: &'a [u8], page_header: PageHeaderV2) -> CellReader<'a>{
+    pub(crate) fn new(disk_cells: DiskSlice, page_header: PageHeaderV2) -> CellReader{
         Self {
-            start: buffer,
-            cur: buffer,
+            cur: 0,
+            disk_cells,
             page_header,
             read_cells: 0,
         }
     }
 }
 
-impl Iterator for CellReader<'_> {
+impl Iterator for CellReader {
     type Item = Cell;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.cur.len() == 0 || self.read_cells == self.page_header.cells_or_flowlen {
+        if self.cur == self.disk_cells.len() || self.read_cells == self.page_header.cells_or_flowlen {
             return None;
         }
 
-        let descriptor = CellDescriptor(self.cur[0]);
+        let mut idx = self.cur;
+        let bytes = &*self.disk_cells;
+        let descriptor = CellDescriptor(bytes[idx]);
         let raw_type = descriptor.get_raw_type();
 
         match raw_type {
             Cell::SHORT_KEY_PFX => {
-                let prefix = self.cur[1];
+                let prefix = bytes[idx+1];
                 let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
-                /* skip lifetime check. */
-                let data =  unsafe { &*(&self.cur[2..] as *const [u8]) };
-                let cell =  unsafe { &*(&self.cur[..2+size] as *const [u8]) };
-                self.cur = &self.cur[2+size..];
+                let data =  self.disk_cells.slice(idx+2..size);
+                let cell =  self.disk_cells.slice(idx..2+size);
+
+                self.cur += 2+size;
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
                     raw_type,
@@ -53,17 +55,17 @@ impl Iterator for CellReader<'_> {
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
-                        data,
+                        data: Some(data),
                         prefix: Some(prefix),
                     })
                 }))
             },
             Cell::SHORT_KEY | Cell::SHORT_VALUE => {
-                let prefix = 0u8;
                 let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
-                let data =  unsafe { &*(&self.cur[1..] as *const [u8]) };
-                let cell =  unsafe { &*(&self.cur[..1+size] as *const [u8]) };
-                self.cur = &self.cur[1+size..];
+                let data =  self.disk_cells.slice(idx+1..size);
+                let cell =  self.disk_cells.slice(idx..1+size);
+
+                self.cur += 1+size;
                 self.read_cells += 1;
                 return Some(Cell::KV(CellKV{
                     raw_type,
@@ -71,7 +73,7 @@ impl Iterator for CellReader<'_> {
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
-                        data,
+                        data: Some(data),
                         prefix: None,
                     })
                 }))
@@ -81,17 +83,13 @@ impl Iterator for CellReader<'_> {
             }
         };
 
-        let begin_cur = self.cur;
-        let mut offset = 0usize;
-
         /* Normal type parsing. */
         let prefix = if raw_type == Cell::KEY_PFX {
-            self.cur = &self.cur[2..];
-            offset += 2;
-            Some(self.cur[1])
+            let prefix = bytes[idx+1];
+            idx += 2;
+            Some(prefix)
         } else {
-            self.cur = &self.cur[1..];
-            offset += 1;
+            idx += 1;
             None
         };
 
@@ -123,21 +121,21 @@ impl Iterator for CellReader<'_> {
                     is_overflow = true;
                 }
 
-                let (size, off) = varint::decode_uint(self.cur).unwrap();
+                let (size, off) = varint::decode_uint(&bytes[idx..]).unwrap();
                 let mut size = size as u32;
                 if cfg!(target_endian = "big") { 
                     size = FP_BIT_REVERSE_32!(size);
                 }
+                let size = size as usize;
 
-                self.cur = &self.cur[off..];
-                offset += off;
+                idx += off;
 
                 //FEAT TODO: reduce size field size on disk.
 
-                
-                let data =  unsafe { &*(&self.cur[..size as usize] as *const [u8]) };
-                let cell =  unsafe { &*(&begin_cur[..size as usize + offset] as *const [u8]) };
-                self.cur = &self.cur[..size as usize];
+                let data =  self.disk_cells.slice(idx..idx+size);
+                let cell =  self.disk_cells.slice(self.cur..idx+size);
+
+                self.cur += idx+size;
 
                 Some(Cell::KV(CellKV{
                     raw_type,
@@ -145,21 +143,23 @@ impl Iterator for CellReader<'_> {
                     is_overflow,
                     data: CellData::InPage(CellDataIn{
                         cell,
-                        data,
+                        data: Some(data),
                         prefix,
                     })
                 }))
             },
             Cell::KV_DEL => {
-                let data =  unsafe { &*(&self.cur[0..0] as *const [u8]) };
-                let cell =  unsafe { &*(&begin_cur[..offset] as *const [u8]) };
+                let cell =  self.disk_cells.slice(self.cur..idx);
+
+                self.cur += idx;
+
                 Some(Cell::KV(CellKV{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
                     data: CellData::InPage(CellDataIn{
                         cell,
-                        data,
+                        data: None,
                         prefix,
                     })
                 }))
@@ -251,8 +251,8 @@ impl Cell {
 }
 
 struct CellDataIn {
-    cell: &'static[u8],
-    data: &'static[u8],
+    cell: DiskSlice,
+    data: Option<DiskSlice>,
     prefix: Option<u8>,
 }
 
