@@ -3,7 +3,7 @@
 use page_header::{PageHeaderRaw, PageHeader as PageHeaderV2};
 use page_type::{PageType};
 use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
-use page_cell::{CellReader, Cell, CellKV, CellAddr};
+use page_cell::{CellReader, Cell, KVCell, AddrCell};
 use page::{Page};
 use page_ref::{PageRef};
 use page_disk::{DiskPage, DiskSlice};

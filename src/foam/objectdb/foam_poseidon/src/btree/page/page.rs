@@ -19,11 +19,11 @@ pub(super) struct Page {
 impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
-    fn new_with_disk_page(disk_page: Vec<u8>) -> FPResult<Self> {
-        let page_disk = DiskPage::new(disk_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
-        let page_header = page_disk.header();
+    fn new_from_buffer(buffer: Vec<u8>) -> FPResult<Self> {
+        let disk_page = DiskPage::new(buffer, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_header = disk_page.header();
 
-        let mut key_cells: u32 = Self::key_cells(&page_disk)?;
+        let mut key_cells: u32 = Self::key_cells(&disk_page)?;
 
         /* Allocate page */
         let mut inner = match page_header.r#type {
@@ -53,7 +53,7 @@ impl Page {
 
         Ok(Self {
             r#type: page_header.r#type,
-            disk: Some(page_disk),
+            disk: Some(disk_page),
         })
     }
 

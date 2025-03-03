@@ -1,16 +1,17 @@
 #![allow(unused)]
 
-use std::{rc::Weak, sync::{atomic::AtomicU8, Arc}};
+use std::sync::{atomic::AtomicU8, Arc, Weak};
 
-use super::Page;
+use super::{DiskSlice, Page};
 
 enum RefKey {
     Col(u64),
-    Row(&'static [u8]),
+    RowOff(Vec<u8>),
+    RowOn(DiskSlice)
 }
 
 pub(super) struct PageRef {
-    home: Weak<Page>,
+    home: Option<Weak<Page>>,
     page: Option<Arc<Page>>,
     is_leaf: bool,
 
@@ -32,4 +33,20 @@ impl PageRef {
     const ON_DISK: u8 = 0x00;
     const DELETED: u8 = 0x01;
     const LOCKED:  u8 = 0x02;
+
+    pub(super) fn is_root(&self) -> bool {
+        matches!(self.home, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_page() {
+        is_sync::<PageRef>();
+    }
 }

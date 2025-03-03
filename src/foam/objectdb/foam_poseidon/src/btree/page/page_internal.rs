@@ -2,29 +2,53 @@
 
 use std::sync::Arc;
 
-use super::PageRef;
+use super::{page_cell::Cell, page_header, DiskPage, PageRef};
 
-// struct InternalPage {
-//     // home: Option<PageDisk>,
-//     split_epoch: u64,
-//     // parent
-//     index: InternalIndex,
-// }
+pub(super) struct InternalPage {
+    // home: Option<PageDisk>,
+    split_epoch: u64,
+    // parent
+    index: InternalIndex,
+}
 
-// struct InternalIndex {
-//     keys: u32,
-//     delete_keys: u32,
-//     index: Vec<Arc<PageRef>>,
-// }
+pub(super) struct InternalIndex {
+    keys: u32,
+    delete_keys: u32,
+    index: Vec<PageRef>,
+}
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+impl InternalPage {
+    pub(super) fn new_as_row_internal(disk_page: &DiskPage) {
+        let page_header = disk_page.header();
+        let cells = page_header.cells_or_flowlen/2;
+        let mut reader = disk_page.cell_reader();
 
-//     fn is_sync<T: Sync>() {}
+        let index = Vec::<PageRef>::with_capacity(cells as usize);
 
-//     #[test]
-//     fn test_page() {
-//         is_sync::<InternalPage>();
-//     }
-// }
+        while let Some(cell) = reader.next() {
+            match cell {
+                Cell::KV(kv) => {
+                    if matches!(kv.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                    }
+                },
+                _ => {
+                    panic!("Impossible code")
+                }
+            }
+        };
+    }
+
+    
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_page() {
+        is_sync::<InternalPage>();
+    }
+}

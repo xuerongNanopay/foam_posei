@@ -49,7 +49,7 @@ impl Iterator for CellReader {
 
                 self.cur += 2+size;
                 self.read_cells += 1;
-                return Some(Cell::KV(CellKV{
+                return Some(Cell::KV(KVCell{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
@@ -67,7 +67,7 @@ impl Iterator for CellReader {
 
                 self.cur += 1+size;
                 self.read_cells += 1;
-                return Some(Cell::KV(CellKV{
+                return Some(Cell::KV(KVCell{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
@@ -137,7 +137,7 @@ impl Iterator for CellReader {
 
                 self.cur += idx+size;
 
-                Some(Cell::KV(CellKV{
+                Some(Cell::KV(KVCell{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow,
@@ -153,7 +153,7 @@ impl Iterator for CellReader {
 
                 self.cur += idx;
 
-                Some(Cell::KV(CellKV{
+                Some(Cell::KV(KVCell{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
@@ -218,8 +218,8 @@ impl CellDescriptor {
 }
 
 pub(crate) enum Cell {
-    KV(CellKV),
-    Addr(CellAddr),
+    KV(KVCell),
+    Addr(AddrCell),
 }
 
 impl Cell {
@@ -256,13 +256,14 @@ struct DiskCell {
     prefix: Option<u8>,
 }
 
+
 enum CellData {
     InPage(DiskCell),
     OffPage(Vec<u8>),
 }
 
 /* Implement TryFrom */
-pub(crate) struct CellKV {
+pub(crate) struct KVCell {
     data: CellData,
     is_overflow: bool,
     raw_type: u8,
@@ -270,7 +271,7 @@ pub(crate) struct CellKV {
     // mvcc_meta: PageKVTS,
 }
 
-impl CellKV {
+impl KVCell {
     pub(super) fn raw_type(&self) -> u8 {
         self.raw_type
     }
@@ -283,7 +284,7 @@ impl CellKV {
 }
 
 
-pub(crate) struct CellAddr {
+pub(crate) struct AddrCell {
     data: CellData,
     // mvcc_meta: PageAddrTS,
 }
