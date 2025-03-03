@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, DiskPage, DiskSlice, PageHeaderRaw, PageHeaderV2, PageRef, PageType};
+use super::{page_tuple::Tuple, page_header, DiskPage, DiskSlice, PageHeaderRaw, PageHeaderV2, PageRef, PageType};
 
 pub(super) struct Page {
     disk: Option<DiskPage>, /* on-disk representation of a page. */
@@ -82,11 +82,11 @@ impl Page {
 
         while let Some(cell) = reader.next() {
             match cell {
-                Cell::KV(kv) => {
-                    if matches!(kv.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                Tuple::KV(kv) => {
+                    if matches!(kv.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
                     }
                 },
-                Cell::Addr(addr) => {
+                Tuple::Addr(addr) => {
                 //    match a 
                 }
             }
@@ -126,8 +126,8 @@ impl Page {
         let mut ret = 0u32;
         while let Some(cell) = reader.next() {
             match cell {
-                Cell::KV(c) => {
-                    if matches!(c.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                Tuple::KV(c) => {
+                    if matches!(c.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
                         ret += 1;
                     }
                 },

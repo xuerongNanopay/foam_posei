@@ -3,7 +3,7 @@
 use page_header::{PageHeaderRaw, PageHeader as PageHeaderV2};
 use page_type::{PageType};
 use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
-use page_cell::{CellReader, Cell, KVCell, AddrCell};
+use page_tuple::{TupleReader, Tuple, KVTuple, AddrTuple};
 use page::{Page};
 use page_ref::{PageRef};
 use page_disk::{DiskPage, DiskSlice};
@@ -11,7 +11,7 @@ use page_disk::{DiskPage, DiskSlice};
 mod page;
 mod page_header;
 mod page_type;
-mod page_cell;
+mod page_tuple;
 mod page_metas;
 mod page_ref;
 mod page_internal;

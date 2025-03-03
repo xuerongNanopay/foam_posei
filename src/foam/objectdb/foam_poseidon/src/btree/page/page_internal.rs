@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use super::{page_cell::Cell, page_header, DiskPage, PageRef};
+use super::{page_tuple::Tuple, page_header, DiskPage, PageRef};
 
 pub(super) struct InternalPage {
     // home: Option<PageDisk>,
@@ -27,8 +27,8 @@ impl InternalPage {
 
         while let Some(cell) = reader.next() {
             match cell {
-                Cell::KV(kv) => {
-                    if matches!(kv.r#type(), Cell::KEY | Cell::KEY_OVFL) {
+                Tuple::KV(kv) => {
+                    if matches!(kv.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
                     }
                 },
                 _ => {

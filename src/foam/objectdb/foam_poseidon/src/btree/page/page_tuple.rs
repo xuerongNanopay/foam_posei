@@ -8,16 +8,16 @@ use super::{page_metas::{PageAddrTS, PageKVTS}, DiskSlice, PageHeaderV2};
  * In-page tuple header reference.
  */
 #[derive(Clone)]
-pub(super) struct CellReader {
+pub(super) struct TupleReader {
     page_header: PageHeaderV2,
     cur: usize,
     disk_cells: DiskSlice,
     read_cells: u32,
 }
 
-impl<'a> CellReader  {
+impl<'a> TupleReader  {
 
-    pub(crate) fn new(disk_cells: DiskSlice, page_header: PageHeaderV2) -> CellReader{
+    pub(crate) fn new(disk_cells: DiskSlice, page_header: PageHeaderV2) -> TupleReader{
         Self {
             cur: 0,
             disk_cells,
@@ -27,8 +27,8 @@ impl<'a> CellReader  {
     }
 }
 
-impl Iterator for CellReader {
-    type Item = Cell;
+impl Iterator for TupleReader {
+    type Item = Tuple;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.cur == self.disk_cells.len() || self.read_cells == self.page_header.cells_or_flowlen {
@@ -37,41 +37,41 @@ impl Iterator for CellReader {
 
         let mut idx = self.cur;
         let bytes = &*self.disk_cells;
-        let descriptor = CellDescriptor(bytes[idx]);
+        let descriptor = TupleDescriptor(bytes[idx]);
         let raw_type = descriptor.get_raw_type();
 
         match raw_type {
-            Cell::SHORT_KEY_PFX => {
+            Tuple::SHORT_KEY_PFX => {
                 let prefix = bytes[idx+1];
-                let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+                let size = (descriptor.0 >> Tuple::SHORT_SHIFT) as usize;
                 let data =  self.disk_cells.slice(idx+2..size);
                 let cell =  self.disk_cells.slice(idx..2+size);
 
                 self.cur += 2+size;
                 self.read_cells += 1;
-                return Some(Cell::KV(KVCell{
+                return Some(Tuple::KV(KVTuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(DiskCell{
+                    data: TupleData::InPage(DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: Some(prefix),
                     })
                 }))
             },
-            Cell::SHORT_KEY | Cell::SHORT_VALUE => {
-                let size = (descriptor.0 >> Cell::SHORT_SHIFT) as usize;
+            Tuple::SHORT_KEY | Tuple::SHORT_VALUE => {
+                let size = (descriptor.0 >> Tuple::SHORT_SHIFT) as usize;
                 let data =  self.disk_cells.slice(idx+1..size);
                 let cell =  self.disk_cells.slice(idx..1+size);
 
                 self.cur += 1+size;
                 self.read_cells += 1;
-                return Some(Cell::KV(KVCell{
+                return Some(Tuple::KV(KVTuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(DiskCell{
+                    data: TupleData::InPage(DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: None,
@@ -84,7 +84,7 @@ impl Iterator for CellReader {
         };
 
         /* Normal type parsing. */
-        let prefix = if raw_type == Cell::KEY_PFX {
+        let prefix = if raw_type == Tuple::KEY_PFX {
             let prefix = bytes[idx+1];
             idx += 2;
             Some(prefix)
@@ -95,10 +95,10 @@ impl Iterator for CellReader {
 
         //NEED TODO: parse mvcc fields.
         match raw_type {
-            Cell::ADDR_DEL | Cell::ADDR_INTERNAL | Cell::ADDR_LEAF | Cell::ADDR_LEAF_NO => {
+            Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
 
             },
-            Cell::KV_DEL | Cell::VALUE | Cell::VALUE_COPY | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL => {
+            Tuple::KV_DEL | Tuple::VALUE | Tuple::VALUE_COPY | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL => {
 
             }
             _ => {}
@@ -108,16 +108,16 @@ impl Iterator for CellReader {
         //NEED TODO: column Run-Length Encoding.
 
         let ret = match raw_type {
-            Cell::VALUE_COPY => {
+            Tuple::VALUE_COPY => {
                 //FEAT TODO: performace on disk space.
                 //store previous no copy value.
                 None
             },
-            Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL |
-            Cell::ADDR_DEL | Cell::ADDR_INTERNAL | Cell::ADDR_LEAF | Cell::ADDR_LEAF_NO |
-            Cell::KEY | Cell::KEY_PFX | Cell::VALUE => {
+            Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL |
+            Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO |
+            Tuple::KEY | Tuple::KEY_PFX | Tuple::VALUE => {
                 let mut is_overflow = false;
-                if matches!(raw_type, Cell::KEY_OVFL | Cell::KEY_OVFL_DEL | Cell::VALUE_OVFL | Cell::VALUE_OVFL_DEL)  {
+                if matches!(raw_type, Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL)  {
                     is_overflow = true;
                 }
 
@@ -137,27 +137,27 @@ impl Iterator for CellReader {
 
                 self.cur += idx+size;
 
-                Some(Cell::KV(KVCell{
+                Some(Tuple::KV(KVTuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow,
-                    data: CellData::InPage(DiskCell{
+                    data: TupleData::InPage(DiskTuple{
                         cell,
                         data: Some(data),
                         prefix,
                     })
                 }))
             },
-            Cell::KV_DEL => {
+            Tuple::KV_DEL => {
                 let cell =  self.disk_cells.slice(self.cur..idx);
 
                 self.cur += idx;
 
-                Some(Cell::KV(KVCell{
+                Some(Tuple::KV(KVTuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(DiskCell{
+                    data: TupleData::InPage(DiskTuple{
                         cell,
                         data: None,
                         prefix,
@@ -176,21 +176,21 @@ impl Iterator for CellReader {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct CellDescriptor(u8);
+struct TupleDescriptor(u8);
 
-impl CellDescriptor {
+impl TupleDescriptor {
     #[inline]
     fn is_short_type(&self) -> bool {
-        FP_BIT_IST!(self.0, Cell::SHORT_TYPE_MASK)
+        FP_BIT_IST!(self.0, Tuple::SHORT_TYPE_MASK)
     }
 
     #[inline]
     fn get_raw_type(&self) -> u8 {
         let mut ret = self.0;
         if self.is_short_type() {
-            FP_BIT_MSK!(ret, Cell::SHORT_TYPE_MASK);
+            FP_BIT_MSK!(ret, Tuple::SHORT_TYPE_MASK);
         } else {
-            FP_BIT_MSK!(ret, Cell::LONG_TYPE_MASK);
+            FP_BIT_MSK!(ret, Tuple::LONG_TYPE_MASK);
         }
         ret
     }
@@ -200,29 +200,29 @@ impl CellDescriptor {
         let raw_type = self.get_raw_type();
 
         match raw_type {
-            Cell::SHORT_KEY | Cell::SHORT_KEY_PFX | Cell::KEY_PFX => {
-                Cell::KEY
+            Tuple::SHORT_KEY | Tuple::SHORT_KEY_PFX | Tuple::KEY_PFX => {
+                Tuple::KEY
             },
-            Cell::SHORT_VALUE => {
-                Cell::VALUE
+            Tuple::SHORT_VALUE => {
+                Tuple::VALUE
             },
-            Cell::KEY_OVFL_DEL => {
-                Cell::KEY_OVFL
+            Tuple::KEY_OVFL_DEL => {
+                Tuple::KEY_OVFL
             },
-            Cell::VALUE_OVFL_DEL => {
-                Cell::VALUE_OVFL
+            Tuple::VALUE_OVFL_DEL => {
+                Tuple::VALUE_OVFL
             }
             _ => {raw_type}
         }
     }
 }
 
-pub(crate) enum Cell {
-    KV(KVCell),
-    Addr(AddrCell),
+pub(crate) enum Tuple {
+    KV(KVTuple),
+    Addr(AddrTuple),
 }
 
-impl Cell {
+impl Tuple {
     pub(super) const SHORT_TYPE_MASK:u8 = 0x03;
     pub(super) const LONG_TYPE_MASK:u8  = 0xf0;
 
@@ -250,28 +250,28 @@ impl Cell {
     
 }
 
-struct DiskCell {
+struct DiskTuple {
     cell: DiskSlice,
     data: Option<DiskSlice>,
     prefix: Option<u8>,
 }
 
 
-enum CellData {
-    InPage(DiskCell),
+enum TupleData {
+    InPage(DiskTuple),
     OffPage(Vec<u8>),
 }
 
 /* Implement TryFrom */
-pub(crate) struct KVCell {
-    data: CellData,
+pub(crate) struct KVTuple {
+    data: TupleData,
     is_overflow: bool,
     raw_type: u8,
     r#type: u8,
     // mvcc_meta: PageKVTS,
 }
 
-impl KVCell {
+impl KVTuple {
     pub(super) fn raw_type(&self) -> u8 {
         self.raw_type
     }
@@ -284,8 +284,8 @@ impl KVCell {
 }
 
 
-pub(crate) struct AddrCell {
-    data: CellData,
+pub(crate) struct AddrTuple {
+    data: TupleData,
     // mvcc_meta: PageAddrTS,
 }
 
@@ -296,6 +296,6 @@ mod tests {
     #[test]
     fn test_cell_reader() {
         // let buffer = [0u8, 10];
-        // let reader = CellReader::try_from(&buffer[..]);
+        // let reader = TupleReader::try_from(&buffer[..]);
     }
 }

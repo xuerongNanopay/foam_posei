@@ -4,7 +4,7 @@ use std::{ops::{Deref, Range}, sync::Arc};
 
 use crate::internal::FPResult;
 
-use super::{CellReader, PageHeaderRaw, PageHeaderV2};
+use super::{TupleReader, PageHeaderRaw, PageHeaderV2};
 
 pub(super) struct DiskPage {
     header_offset: usize,
@@ -28,8 +28,8 @@ impl DiskPage {
         })
     }
 
-    pub(super) fn cell_reader(&self) -> CellReader {
-        CellReader::new(self.disk.slice(self.cell_offset..self.disk.len()), self.header)
+    pub(super) fn cell_reader(&self) -> TupleReader {
+        TupleReader::new(self.disk.slice(self.cell_offset..self.disk.len()), self.header)
     }
 
     pub(super) fn header(&self) -> PageHeaderV2 {
