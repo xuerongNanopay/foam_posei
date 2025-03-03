@@ -53,7 +53,7 @@ impl Iterator for CellReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(CellDataIn{
+                    data: CellData::InPage(DiskCell{
                         cell,
                         data: Some(data),
                         prefix: Some(prefix),
@@ -71,7 +71,7 @@ impl Iterator for CellReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(CellDataIn{
+                    data: CellData::InPage(DiskCell{
                         cell,
                         data: Some(data),
                         prefix: None,
@@ -141,7 +141,7 @@ impl Iterator for CellReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow,
-                    data: CellData::InPage(CellDataIn{
+                    data: CellData::InPage(DiskCell{
                         cell,
                         data: Some(data),
                         prefix,
@@ -157,7 +157,7 @@ impl Iterator for CellReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: CellData::InPage(CellDataIn{
+                    data: CellData::InPage(DiskCell{
                         cell,
                         data: None,
                         prefix,
@@ -250,19 +250,15 @@ impl Cell {
     
 }
 
-struct CellDataIn {
+struct DiskCell {
     cell: DiskSlice,
     data: Option<DiskSlice>,
     prefix: Option<u8>,
 }
 
-struct CellDataOff {
-    data: Vec<u8>
-}
-
 enum CellData {
-    InPage(CellDataIn),
-    OffPage(CellDataOff),
+    InPage(DiskCell),
+    OffPage(Vec<u8>),
 }
 
 /* Implement TryFrom */
