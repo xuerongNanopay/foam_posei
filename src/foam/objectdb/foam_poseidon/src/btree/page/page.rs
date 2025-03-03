@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use crate::{error::{FP_BTREE_PAGE_TYPE_ILL, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
-use super::{page_header, Cell, CellReader, PageHeaderRaw, PageHeaderV2, PageRef, DiskSlice, PageType};
+use super::{page_header, Cell, CellReader, DiskPage, DiskSlice, PageHeaderRaw, PageHeaderV2, PageRef, PageType};
 
 pub(super) struct Page {
-    disk: Option<PageDisk>, /* on-disk representation of a page. */
+    disk: Option<DiskPage>, /* on-disk representation of a page. */
     r#type: PageType,
     // inner: PageInner,
 
@@ -20,7 +20,7 @@ impl Page {
     const HARD_CODE_BLOCK_HEADER_LEN:usize = 28;
 
     fn new_with_disk_page(disk_page: Vec<u8>) -> FPResult<Self> {
-        let page_disk = PageDisk::new(disk_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
+        let page_disk = DiskPage::new(disk_page, 0, FP_SIZE_OF!(PageHeaderRaw) + Page::HARD_CODE_BLOCK_HEADER_LEN)?;
         let page_header = page_disk.header();
 
         let mut key_cells: u32 = Self::key_cells(&page_disk)?;
@@ -57,7 +57,7 @@ impl Page {
         })
     }
 
-    fn construct_inner(page_raw: &PageDisk, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
+    fn construct_inner(page_raw: &DiskPage, page_header: &PageHeaderV2, key_cells: u32) -> FPResult<Inner> {
         match page_header.r#type {
             PageType::ColInternal | PageType::RowInternal => {
                 let internal_index = InternalIndex {
@@ -76,7 +76,7 @@ impl Page {
         Err(FP_NO_IMPL)
     }
 
-    fn construct_row_internal(page_raw: &PageDisk) {
+    fn construct_row_internal(page_raw: &DiskPage) {
         let mut reader = page_raw.cell_reader();
         let hint = 0u32;
 
@@ -93,7 +93,7 @@ impl Page {
         };
     }
 
-    fn key_cells(page_raw: &PageDisk) -> FPResult<u32> {
+    fn key_cells(page_raw: &DiskPage) -> FPResult<u32> {
         let page_header = page_raw.header();
         let page_tuples = match page_header.r#type {
             PageType::ColLeafVar | PageType::ColLeafFix => {
@@ -121,7 +121,7 @@ impl Page {
         Ok(page_tuples)
     }
 
-    fn row_leaf_key_cells(page_raw: &PageDisk, page_header: &PageHeaderV2) -> u32 {
+    fn row_leaf_key_cells(page_raw: &DiskPage, page_header: &PageHeaderV2) -> u32 {
         let mut reader = page_raw.cell_reader();
         let mut ret = 0u32;
         while let Some(cell) = reader.next() {
@@ -148,7 +148,7 @@ enum Inner {
 }
 
 struct InternalPage {
-    // home: Option<PageDisk>,
+    // home: Option<DiskPage>,
     split_epoch: u64,
     // parent
     index: InternalIndex,

@@ -14,7 +14,7 @@ pub(super) struct DiskPage {
 }
 
 impl DiskPage {
-    fn new(disk_page: Vec<u8>, header_offset: usize, cell_offset: usize) -> FPResult<Self> {
+    pub(super) fn new(disk_page: Vec<u8>, header_offset: usize, cell_offset: usize) -> FPResult<Self> {
         let (_, raw_page_header) = PageHeaderRaw::deserialize(&disk_page[..])?;
 
         let disk = DiskSlice::new(disk_page);
@@ -28,11 +28,11 @@ impl DiskPage {
         })
     }
 
-    fn cell_reader(&self) -> CellReader {
+    pub(super) fn cell_reader(&self) -> CellReader {
         CellReader::new(self.disk.slice(self.cell_offset..self.disk.len()), self.header)
     }
 
-    fn header(&self) -> PageHeaderV2 {
+    pub(super) fn header(&self) -> PageHeaderV2 {
         self.header
     }
 }
