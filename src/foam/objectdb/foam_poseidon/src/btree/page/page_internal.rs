@@ -2,14 +2,12 @@
 
 use std::sync::{Arc, Weak};
 
-use crate::btree::btree::Btree;
+use crate::{btree::btree::Btree, error::{FP_NO_IMPL, FP_NO_SUPPORT}, internal::FPResult};
 
 use super::{page_header, page_tuple::Tuple, DiskPage, DiskSlice, Page, PageDeleted, PageHeaderV2, PageRef, RefKey};
 
 pub(super) struct InternalPage {
-    // home: Option<PageDisk>,
     split_epoch: u64,
-    // parent
     index: InternalIndex,
 }
 
@@ -20,12 +18,12 @@ pub(super) struct InternalIndex {
 }
 
 impl InternalPage {
-    pub(super) fn new_as_row_internal(btree: &Btree, home: Weak<Page>, disk_page: &DiskPage) {
+    pub(super) fn new_as_row_internal(btree: &Btree, home: Weak<Page>, disk_page: &DiskPage) -> FPResult<Self> {
         let page_header = disk_page.header();
-        let mut tuples = (page_header.cells_or_flowlen/2) as usize;
+        let mut keys = (page_header.cells_or_flowlen/2) as usize;
         let mut reader = disk_page.cell_reader();
 
-        let mut index = Vec::<PageRef>::with_capacity(tuples);
+        let mut index = Vec::<PageRef>::with_capacity(keys);
         let mut read_cells = 0u32;
     
         while let (Some(key_tuple), Some(addr_tuple)) = (reader.next(), reader.next()) {
@@ -41,6 +39,7 @@ impl InternalPage {
                 },
                 Tuple::KEY_OVFL => {
                     //NEED TODO: bring overflow key to memory. see: __wt_dsk_cell_data_ref_addr.
+                    return Err(FP_NO_SUPPORT);
                 },
                 _ => {
                     panic!("Impossible code")
@@ -67,8 +66,19 @@ impl InternalPage {
                 }
             }
 
+            let page_ref = PageRef::new(Some(home.clone()), key, page_deleted, state);
+            index.push(page_ref);
             read_cells += 2;
         };
+
+        Ok(Self {
+            split_epoch: 0,
+            index: InternalIndex {
+                keys: keys as u32,
+                delete_keys: 0,
+                index,
+            },
+        })
     }
 
     

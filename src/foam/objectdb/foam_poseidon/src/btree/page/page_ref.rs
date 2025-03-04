@@ -44,7 +44,7 @@ impl PageRef {
 
     pub(super) fn new(
         home: Option<Weak<Page>>, 
-        key: DiskSlice,
+        key: RefKey,
         page_deleted: Option<PageDeleted>,
         state: u8,
     ) -> Self {
@@ -54,7 +54,7 @@ impl PageRef {
             addr: None,
             is_leaf: false,
             state: AtomicU8::new(state),
-            key: RefKey::RowIn(key),
+            key,
             page_deleted,
         }
     }
