@@ -1,8 +1,8 @@
 #![allow(unused)]
 
-use std::sync::{atomic::AtomicU8, Arc, Weak};
+use std::sync::{atomic::{AtomicU8, Ordering}, Arc, Weak};
 
-use super::{DiskSlice, Page};
+use super::{DiskSlice, Page, PageDeleted};
 
 pub(super) enum RefKey {
     Col(u64),
@@ -16,13 +16,13 @@ pub(super) struct PageRef {
     is_leaf: bool,
 
     // load_state: AtomicU8,
-    // state: AtomicU8,
-
-    // addr?
+    state: AtomicU8,
 
     key: RefKey,
     //TODO: enum it.
     addr: Option<DiskSlice>,
+
+    page_deleted: Option<PageDeleted>
 }
 
 impl PageRef {
@@ -32,25 +32,45 @@ impl PageRef {
     const READING: u8 = 0x02;
 
     /* state. */
-    const ON_DISK: u8 = 0x00;
-    const DELETED: u8 = 0x01;
-    const LOCKED:  u8 = 0x02;
+    pub(super) const ON_DISK: u8 = 0x00;
+    pub(super) const DELETED: u8 = 0x01;
+    pub(super) const LOCKED:  u8 = 0x02;
+    pub(super) const IN_MEM:  u8 = 0x03;
+    pub(super) const DEAD:    u8 = 0x04;
 
     pub(super) fn is_root(&self) -> bool {
         matches!(self.home, None)
     }
 
-    pub(super) fn new_with_default(
+    pub(super) fn new(
         home: Option<Weak<Page>>, 
         key: DiskSlice,
+        page_deleted: Option<PageDeleted>,
+        state: u8,
     ) -> Self {
         Self {
             home,
             page: None,
             addr: None,
             is_leaf: false,
-            key: RefKey::RowIn(key)
+            state: AtomicU8::new(state),
+            key: RefKey::RowIn(key),
+            page_deleted,
         }
+    }
+
+    pub(super) fn set_status(
+        &self,
+        new_state: u8,
+    ) {
+        self.state.store(new_state, Ordering::Release);
+    }
+
+    pub(super) fn get_status(
+        &self,
+        new_state: u8,
+    ) -> u8 {
+        self.state.load(Ordering::Acquire)
     }
 }
 

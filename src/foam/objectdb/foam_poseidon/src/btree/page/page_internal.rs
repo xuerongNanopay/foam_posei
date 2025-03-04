@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Weak};
 
-use super::{page_header, page_tuple::Tuple, DiskPage, Page, PageRef, RefKey};
+use super::{page_header, page_tuple::Tuple, DiskPage, DiskSlice, Page, PageDeleted, PageHeaderV2, PageRef, RefKey};
 
 pub(super) struct InternalPage {
     // home: Option<PageDisk>,
@@ -27,8 +27,10 @@ impl InternalPage {
         let mut read_cells = 0u32;
     
         while let (Some(key_tuple), Some(addr_tuple)) = (reader.next(), reader.next()) {
-            let mut key;
-            let mut addr;
+            let mut page_deleted: Option<PageDeleted> = None;
+            let mut key: RefKey;
+            let mut addr: Option<DiskSlice>;
+            let mut state = PageRef::ON_DISK;
 
             match key_tuple.r#type() {
                 Tuple::KEY => {
@@ -36,8 +38,7 @@ impl InternalPage {
                     // let page_ref = PageRef::new_with_default(Some(home.clone()), kv.get_tuple_data().unwrap());
                 },
                 Tuple::KEY_OVFL => {
-                    //MUST TODO: bring overflow key to memory. see: __wt_dsk_cell_data_ref_addr.
-                    
+                    //NEED TODO: bring overflow key to memory. see: __wt_dsk_cell_data_ref_addr.
                 },
                 _ => {
                     panic!("Impossible code")
@@ -49,7 +50,11 @@ impl InternalPage {
                     addr = Some(addr_tuple.get_disk_tuple());
                 },
                 Tuple::ADDR_DEL => {
-
+                    if page_header.is_set(PageHeaderV2::FAST_TRUNC_UPDATE) {
+                        page_deleted = addr_tuple.page_delete();
+                    }
+                    state = PageRef::DELETED;
+                    addr = Some(addr_tuple.get_disk_tuple());
                 }
                 _ => {
                     panic!("Impossible code")

@@ -142,32 +142,16 @@ impl Iterator for TupleReader {
 
                 self.cur += idx+data_size;
 
-                match raw_type {
-                    Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
-                        Some(Tuple {
-                            raw_type,
-                            r#type: descriptor.get_collapse_type(),
-                            prefix,
-                            disk_tuple: DiskTuple{
-                                cell,
-                                data: Some(data),
-                            },
-                            page_deleted,
-                        })
+                Some(Tuple {
+                    raw_type,
+                    r#type: descriptor.get_collapse_type(),
+                    prefix,
+                    disk_tuple: DiskTuple{
+                        cell,
+                        data: Some(data),
                     },
-                    _ => {
-                        Some(Tuple {
-                            raw_type,
-                            r#type: descriptor.get_collapse_type(),
-                            prefix,
-                            disk_tuple: DiskTuple{
-                                cell,
-                                data: Some(data),
-                            },
-                            page_deleted: None,
-                        })
-                    },
-                }
+                    page_deleted,
+                })
             },
             Tuple::VALUE_DEL => {
                 let cell =  self.disk_cells.slice(self.cur..idx);
