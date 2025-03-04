@@ -26,32 +26,30 @@ impl InternalPage {
         let mut index = Vec::<PageRef>::with_capacity(tuples);
         let mut read_cells = 0u32;
     
-        while let (Some(t_key), Some(t_addr)) = (reader.next(), reader.next()) {
+        while let (Some(key_tuple), Some(addr_tuple)) = (reader.next(), reader.next()) {
             let mut key;
             let mut addr;
-            match t_key {
-                Tuple::KV(kv) => {
-                    match kv.r#type() {
-                        Tuple::KEY => {
-                            key = RefKey::RowIn(kv.get_tuple_data().unwrap());
-                            // let page_ref = PageRef::new_with_default(Some(home.clone()), kv.get_tuple_data().unwrap());
-                        },
-                        Tuple::KEY_OVFL => {
-                            //MUST TODO: bring overflow key to memory. see: __wt_dsk_cell_data_ref_addr.
-                        },
-                        _ => {
-                            panic!("Impossible code")
-                        }
-                    }
-                }
+
+            match key_tuple.r#type() {
+                Tuple::KEY => {
+                    key = RefKey::RowIn(key_tuple.get_disk_data().unwrap());
+                    // let page_ref = PageRef::new_with_default(Some(home.clone()), kv.get_tuple_data().unwrap());
+                },
+                Tuple::KEY_OVFL => {
+                    //MUST TODO: bring overflow key to memory. see: __wt_dsk_cell_data_ref_addr.
+                    
+                },
                 _ => {
                     panic!("Impossible code")
                 }
             }
 
-            match t_addr {
-                Tuple::Addr(addr_tuple) => {
-                    addr = Some(addr_tuple.get_tuple());
+            match addr_tuple.r#type() {
+                Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
+                    addr = Some(addr_tuple.get_disk_tuple());
+                },
+                Tuple::ADDR_DEL => {
+
                 }
                 _ => {
                     panic!("Impossible code")

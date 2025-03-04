@@ -81,15 +81,7 @@ impl Page {
         let hint = 0u32;
 
         while let Some(cell) = reader.next() {
-            match cell {
-                Tuple::KV(kv) => {
-                    if matches!(kv.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
-                    }
-                },
-                Tuple::Addr(addr) => {
-                //    match a 
-                }
-            }
+
         };
     }
 
@@ -107,9 +99,9 @@ impl Page {
                 page_header.cells_or_flowlen/2
             },
             PageType::RowLeaf => {
-                if FP_BIT_IST!(page_header.flags, PageHeaderV2::FLAG_ROW_LEAF_VALUE_EMPTY_ALL) {
+                if FP_BIT_IST!(page_header.flags, PageHeaderV2::ROW_LEAF_VALUE_EMPTY_ALL) {
                     page_header.cells_or_flowlen
-                } else if FP_BIT_IST!(page_header.flags, PageHeaderV2::FLAG_ROW_LEAF_VALUE_EMPTY_NONE) {
+                } else if FP_BIT_IST!(page_header.flags, PageHeaderV2::ROW_LEAF_VALUE_EMPTY_NONE) {
                     page_header.cells_or_flowlen/2
                 } else {
                     /* Need to interate page to calculate tuple numbers */
@@ -125,15 +117,8 @@ impl Page {
         let mut reader = page_raw.cell_reader();
         let mut ret = 0u32;
         while let Some(cell) = reader.next() {
-            match cell {
-                Tuple::KV(c) => {
-                    if matches!(c.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
-                        ret += 1;
-                    }
-                },
-                _ => {
-                    panic!("impossible code");
-                }
+            if matches!(cell.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
+                ret += 1;
             }
         };
         ret

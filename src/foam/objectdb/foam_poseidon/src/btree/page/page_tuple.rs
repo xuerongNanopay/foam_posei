@@ -4,7 +4,7 @@ use std::ops::Add;
 
 use crate::{btree::buf, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
 
-use super::{page_metas::{PageAddrTS, PageKVTS}, DiskSlice, PageHeaderV2};
+use super::{page_header, page_metas::{PageAddrTS, PageDeleted, PageKVTS}, DiskSlice, PageHeaderV2};
 
 /**
  * In-page tuple header reference.
@@ -41,6 +41,7 @@ impl Iterator for TupleReader {
         let bytes = &*self.disk_cells;
         let descriptor = TupleDescriptor(bytes[idx]);
         let raw_type = descriptor.get_raw_type();
+        let mut page_deleted = None;
 
         match raw_type {
             Tuple::SHORT_KEY_PFX => {
@@ -51,16 +52,16 @@ impl Iterator for TupleReader {
 
                 self.cur += 2+size;
                 self.read_cells += 1;
-                return Some(Tuple::KV(KVTuple{
+                return Some(Tuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
-                    is_overflow: false,
+                    prefix: Some(prefix),
                     disk_tuple: DiskTuple{
                         cell,
                         data: Some(data),
-                        prefix: Some(prefix),
-                    }
-                }))
+                    },
+                    page_deleted: None,
+                })
             },
             Tuple::SHORT_KEY | Tuple::SHORT_VALUE => {
                 let size = (descriptor.0 >> Tuple::SHORT_SHIFT) as usize;
@@ -69,16 +70,16 @@ impl Iterator for TupleReader {
 
                 self.cur += 1+size;
                 self.read_cells += 1;
-                return Some(Tuple::KV(KVTuple{
+                return Some(Tuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
-                    is_overflow: false,
+                    prefix: None,
                     disk_tuple: DiskTuple{
                         cell,
                         data: Some(data),
-                        prefix: None,
-                    }
-                }))
+                    },
+                    page_deleted: None,
+                })
             },
             _ => {
                /* Normal Type */
@@ -100,13 +101,23 @@ impl Iterator for TupleReader {
             Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
 
             },
-            Tuple::KV_DEL | Tuple::VALUE | Tuple::VALUE_COPY | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL => {
+            Tuple::VALUE_DEL | Tuple::VALUE | Tuple::VALUE_COPY | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL => {
 
             }
             _ => {}
         };
 
-        //NEED TODO: fast-truncate.
+        if matches!(raw_type, Tuple::ADDR_DEL) && self.page_header.is_set(PageHeaderV2::FAST_TRUNC_UPDATE) {
+            let (txn_id, off) = varint::decode_uint(&bytes[idx..]).unwrap();
+            idx += off;
+            let (timestamp, off) = varint::decode_uint(&bytes[idx..]).unwrap();
+            idx += off;
+            let (commit_timestamp, off) = varint::decode_uint(&bytes[idx..]).unwrap();
+            idx += off;
+
+            page_deleted = Some(PageDeleted::new(txn_id, timestamp, commit_timestamp))
+        }
+
         //NEED TODO: column Run-Length Encoding.
 
         let ret = match raw_type {
@@ -118,68 +129,61 @@ impl Iterator for TupleReader {
             Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL |
             Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO |
             Tuple::KEY | Tuple::KEY_PFX | Tuple::VALUE => {
-                let mut is_overflow = false;
-                if matches!(raw_type, Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL)  {
-                    is_overflow = true;
-                }
 
-                let (size, off) = varint::decode_uint(&bytes[idx..]).unwrap();
-                let mut size = size as u32;
-                if cfg!(target_endian = "big") { 
-                    size = FP_BIT_REVERSE_32!(size);
-                }
-                let size = size as usize;
+                let (data_size, off) = varint::decode_uint(&bytes[idx..]).unwrap();
+                let data_size = data_size as usize;
 
                 idx += off;
 
                 //FEAT TODO: reduce size field size on disk.
 
-                let data =  self.disk_cells.slice(idx..idx+size);
-                let cell =  self.disk_cells.slice(self.cur..idx+size);
+                let data =  self.disk_cells.slice(idx..idx+data_size);
+                let cell =  self.disk_cells.slice(self.cur..idx+data_size);
 
-                self.cur += idx+size;
+                self.cur += idx+data_size;
 
                 match raw_type {
                     Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
-                        Some(Tuple::Addr(AddrTuple {
+                        Some(Tuple {
                             raw_type,
                             r#type: descriptor.get_collapse_type(),
+                            prefix,
                             disk_tuple: DiskTuple{
                                 cell,
                                 data: Some(data),
-                                prefix,
-                            }
-                        }))
+                            },
+                            page_deleted,
+                        })
                     },
                     _ => {
-                        Some(Tuple::KV(KVTuple{
+                        Some(Tuple {
                             raw_type,
                             r#type: descriptor.get_collapse_type(),
-                            is_overflow,
+                            prefix,
                             disk_tuple: DiskTuple{
                                 cell,
                                 data: Some(data),
-                                prefix,
-                            }
-                        }))
+                            },
+                            page_deleted: None,
+                        })
                     },
                 }
             },
-            Tuple::KV_DEL => {
+            Tuple::VALUE_DEL => {
                 let cell =  self.disk_cells.slice(self.cur..idx);
 
                 self.cur += idx;
 
-                Some(Tuple::KV(KVTuple{
+                Some(Tuple{
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
-                    is_overflow: false,
+                    prefix,
                     disk_tuple: DiskTuple{
                         cell,
                         data: None,
-                        prefix,
-                    }
-                }))
+                    },
+                    page_deleted: None,
+                })
             },
             _ => {
                 panic!("impossible code")
@@ -234,9 +238,66 @@ impl TupleDescriptor {
     }
 }
 
-pub(crate) enum Tuple {
-    KV(KVTuple),
-    Addr(AddrTuple),
+struct DiskTuple {
+    cell: DiskSlice,
+    data: Option<DiskSlice>,
+}
+
+pub(crate) struct Tuple {
+    disk_tuple: DiskTuple,
+    raw_type: u8,
+    r#type: u8,
+    prefix: Option<u8>,
+    page_deleted: Option<PageDeleted>
+}
+
+impl Tuple {
+    #[inline]
+    pub(super) fn r#type(&self) -> u8 {
+        self.r#type
+    }
+
+    #[inline]
+    pub(super) fn raw_type(&self) -> u8 {
+        self.raw_type
+    }
+
+    #[inline]
+    pub(super) fn is_key_tuple(&self) -> bool {
+        matches!(self.raw_type, Tuple::KEY | Tuple::KEY_PFX | Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL)
+    }
+
+    #[inline]
+    pub(super) fn is_value_tuple(&self) -> bool {
+        matches!(self.raw_type, Tuple::VALUE_DEL | Tuple::VALUE | Tuple::VALUE_COPY | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL)
+    }
+
+    #[inline]
+    pub(super) fn is_addr_tuple(&self) -> bool {
+        matches!(self.raw_type, Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO)
+    }
+
+    #[inline]
+    pub(super) fn is_overflow(&self) -> bool {
+        matches!(self.raw_type, Tuple::KEY_OVFL | Tuple::KEY_OVFL_DEL | Tuple::VALUE_OVFL | Tuple::VALUE_OVFL_DEL)
+    }
+
+    #[inline]
+    pub(super) fn get_disk_data(&self) -> Option<DiskSlice> {
+        self.disk_tuple.data.clone()
+    }
+
+    #[inline]
+    pub(super) fn get_disk_tuple(&self) -> DiskSlice {
+        self.disk_tuple.cell.clone()
+    }
+
+    #[inline]
+    pub(super) fn page_delete(&self) -> Option<PageDeleted> {
+        assert!(matches!(self.raw_type, Tuple::VALUE_OVFL_DEL));
+
+        self.page_deleted
+    }
 }
 
 impl Tuple {
@@ -255,22 +316,16 @@ impl Tuple {
     pub(super) const ADDR_LEAF:     u8 = 2 << 4;
     pub(super) const ADDR_LEAF_NO:  u8 = 3 << 4;
 
-    pub(super) const KV_DEL:        u8 = 4 << 4;
-    pub(super) const KEY:           u8 = 5 << 4;
-    pub(super) const KEY_OVFL:      u8 = 6 << 4;
-    pub(super) const KEY_PFX:       u8 = 7 << 4;
+    pub(super) const KEY:           u8 = 4 << 4;
+    pub(super) const KEY_OVFL:      u8 = 5 << 4;
+    pub(super) const KEY_PFX:       u8 = 6 << 4;
+    pub(super) const VALUE_DEL:     u8 = 7 << 4;
     pub(super) const VALUE:         u8 = 8 << 4;
     pub(super) const VALUE_OVFL:    u8 = 9 << 4;
     pub(super) const VALUE_COPY:    u8 = 10 << 4;
     pub(super) const KEY_OVFL_DEL:  u8 = 11 << 4;
     pub(super) const VALUE_OVFL_DEL:u8 = 12 << 4;
     
-}
-
-struct DiskTuple {
-    cell: DiskSlice,
-    data: Option<DiskSlice>,
-    prefix: Option<u8>,
 }
 
 
@@ -281,51 +336,6 @@ pub(crate) struct KVTuple {
     raw_type: u8,
     r#type: u8,
     // mvcc_meta: PageKVTS,
-}
-
-impl KVTuple {
-    pub(super) fn raw_type(&self) -> u8 {
-        self.raw_type
-    }
-    pub(super) fn is_overflow(&self) -> bool {
-        self.is_overflow
-    }
-    pub(super) fn r#type(&self) -> u8 {
-        self.r#type
-    }
-
-    pub(super) fn get_tuple_data(&self) -> Option<DiskSlice> {
-        self.disk_tuple.data.clone()
-    }
-
-    pub(super) fn get_tuple(&self) -> DiskSlice {
-        self.disk_tuple.cell.clone()
-    }
-}
-
-
-pub(crate) struct AddrTuple {
-    disk_tuple: DiskTuple,
-    raw_type: u8,
-    r#type: u8,
-    // mvcc_meta: PageAddrTS,
-}
-
-impl AddrTuple {
-    pub(super) fn raw_type(&self) -> u8 {
-        self.raw_type
-    }
-    pub(super) fn r#type(&self) -> u8 {
-        self.r#type
-    }
-
-    pub(super) fn get_tuple_data(&self) -> Option<DiskSlice> {
-        self.disk_tuple.data.clone()
-    }
-
-    pub(super) fn get_tuple(&self) -> DiskSlice {
-        self.disk_tuple.cell.clone()
-    }
 }
 
 #[cfg(test)]

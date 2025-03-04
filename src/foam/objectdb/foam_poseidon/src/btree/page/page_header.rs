@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::{error::FP_BTREE_PAGE_HEADER_LEN_ILL, internal::FPResult, FP_ASSERT, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
+use crate::{error::FP_BTREE_PAGE_HEADER_LEN_ILL, internal::FPResult, FP_ASSERT, FP_BIT_IST, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
 
 use super::PageType;
 
@@ -18,11 +18,16 @@ pub(super) struct PageHeader {
 }
 
 impl PageHeader {
-    pub(super) const FLAG_COMPRESSED:                   u8 = 0x01 << 0;
-    pub(super) const FLAG_ENCRYPTED:                    u8 = 0x01 << 1;
-    pub(super) const FLAG_UNUSED:                       u8 = 0x01 << 2;
-    pub(super) const FLAG_ROW_LEAF_VALUE_EMPTY_ALL:     u8 = 0x01 << 3;
-    pub(super) const FLAG_ROW_LEAF_VALUE_EMPTY_NONE:    u8 = 0x01 << 4;
+    pub(super) const COMPRESSED:                   u8 = 0x01 << 0;
+    pub(super) const ENCRYPTED:                    u8 = 0x01 << 1;
+    pub(super) const UNUSED:                       u8 = 0x01 << 2;
+    pub(super) const ROW_LEAF_VALUE_EMPTY_ALL:     u8 = 0x01 << 3;
+    pub(super) const ROW_LEAF_VALUE_EMPTY_NONE:    u8 = 0x01 << 4;
+    pub(super) const FAST_TRUNC_UPDATE:            u8 = 0x01 << 5;
+
+    pub(super) fn is_set(&self, flag: u8) -> bool {
+        FP_BIT_IST!(self.flags, flag)
+    }
 }
 
 /**
