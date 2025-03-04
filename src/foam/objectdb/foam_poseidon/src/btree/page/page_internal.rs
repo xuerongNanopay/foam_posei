@@ -2,6 +2,8 @@
 
 use std::sync::{Arc, Weak};
 
+use crate::btree::btree::Btree;
+
 use super::{page_header, page_tuple::Tuple, DiskPage, DiskSlice, Page, PageDeleted, PageHeaderV2, PageRef, RefKey};
 
 pub(super) struct InternalPage {
@@ -18,7 +20,7 @@ pub(super) struct InternalIndex {
 }
 
 impl InternalPage {
-    pub(super) fn new_as_row_internal(home: Weak<Page>, disk_page: &DiskPage) {
+    pub(super) fn new_as_row_internal(btree: &Btree, home: Weak<Page>, disk_page: &DiskPage) {
         let page_header = disk_page.header();
         let mut tuples = (page_header.cells_or_flowlen/2) as usize;
         let mut reader = disk_page.cell_reader();
@@ -55,6 +57,10 @@ impl InternalPage {
                     }
                     state = PageRef::DELETED;
                     addr = Some(addr_tuple.get_disk_tuple());
+
+                    if btree.get_modified() {
+                        //NEED TODO: make page to dirty.
+                    }
                 }
                 _ => {
                     panic!("Impossible code")

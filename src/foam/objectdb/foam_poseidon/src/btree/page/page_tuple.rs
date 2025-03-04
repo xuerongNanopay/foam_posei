@@ -312,16 +312,6 @@ impl Tuple {
     
 }
 
-
-/* Implement TryFrom */
-pub(crate) struct KVTuple {
-    disk_tuple: DiskTuple,
-    is_overflow: bool,
-    raw_type: u8,
-    r#type: u8,
-    // mvcc_meta: PageKVTS,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

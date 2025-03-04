@@ -59,17 +59,11 @@ impl PageRef {
         }
     }
 
-    pub(super) fn set_status(
-        &self,
-        new_state: u8,
-    ) {
+    pub(super) fn set_status(&self, new_state: u8) {
         self.state.store(new_state, Ordering::Release);
     }
 
-    pub(super) fn get_status(
-        &self,
-        new_state: u8,
-    ) -> u8 {
+    pub(super) fn get_status(&self) -> u8 {
         self.state.load(Ordering::Acquire)
     }
 }

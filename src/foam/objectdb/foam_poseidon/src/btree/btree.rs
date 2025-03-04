@@ -1,6 +1,24 @@
 #![allow(unused)]
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 pub mod btree_cursor;
+
+pub(crate) struct Btree {
+
+    modified: AtomicBool
+}
+
+impl Btree {
+
+    pub(super) fn set_modified(&self, modified: bool) {
+        self.modified.store(modified, Ordering::Release);
+    }
+
+    pub(super) fn get_modified(&self) -> bool {
+        self.modified.load(Ordering::Acquire)
+    }
+}
 
 // use std::{mem::ManuallyDrop, ptr, str::FromStr, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc, Weak}, task::Context};
 
