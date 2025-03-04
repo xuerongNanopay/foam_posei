@@ -13,10 +13,10 @@ enum RefKey {
 pub(super) struct PageRef {
     home: Option<Weak<Page>>,
     page: Option<Arc<Page>>,
-    is_leaf: bool,
+    // is_leaf: bool,
 
-    load_state: AtomicU8,
-    state: AtomicU8,
+    // load_state: AtomicU8,
+    // state: AtomicU8,
 
     // addr?
 
@@ -36,6 +36,14 @@ impl PageRef {
 
     pub(super) fn is_root(&self) -> bool {
         matches!(self.home, None)
+    }
+
+    pub(super) fn new_for_row(key: DiskSlice) -> Self {
+        Self {
+            home: None,
+            page: None,
+            key: RefKey::RowOn(key)
+        }
     }
 }
 

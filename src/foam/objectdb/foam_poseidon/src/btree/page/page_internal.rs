@@ -20,17 +20,21 @@ pub(super) struct InternalIndex {
 impl InternalPage {
     pub(super) fn new_as_row_internal(disk_page: &DiskPage) {
         let page_header = disk_page.header();
-        let tuples = page_header.cells_or_flowlen/2;
+        let tuples = (page_header.cells_or_flowlen/2) as usize;
         let mut reader = disk_page.cell_reader();
 
-        let index = Vec::<PageRef>::with_capacity(tuples as usize);
+        // let index = vec![; tuples];
 
         while let Some(tuple) = reader.next() {
             match tuple {
                 Tuple::KV(kv) => {
-                    if matches!(kv.r#type(), Tuple::KEY | Tuple::KEY_OVFL) {
-                    }
                     match kv.r#type() {
+                        Tuple::KEY => {
+                            
+                        },
+                        Tuple::KEY_OVFL => {
+
+                        },
                         _ => {
                             panic!("Impossible code")
                         }
