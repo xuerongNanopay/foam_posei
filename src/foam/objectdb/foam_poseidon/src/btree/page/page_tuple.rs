@@ -137,16 +137,31 @@ impl Iterator for TupleReader {
 
                 self.cur += idx+size;
 
-                Some(Tuple::KV(KVTuple{
-                    raw_type,
-                    r#type: descriptor.get_collapse_type(),
-                    is_overflow,
-                    disk_tuple: DiskTuple{
-                        cell,
-                        data: Some(data),
-                        prefix,
-                    }
-                }))
+                match raw_type {
+                    Tuple::ADDR_DEL | Tuple::ADDR_INTERNAL | Tuple::ADDR_LEAF | Tuple::ADDR_LEAF_NO => {
+                        Some(Tuple::Addr(AddrTuple {
+                            raw_type,
+                            r#type: descriptor.get_collapse_type(),
+                            disk_tuple: DiskTuple{
+                                cell,
+                                data: Some(data),
+                                prefix,
+                            }
+                        }))
+                    },
+                    _ => {
+                        Some(Tuple::KV(KVTuple{
+                            raw_type,
+                            r#type: descriptor.get_collapse_type(),
+                            is_overflow,
+                            disk_tuple: DiskTuple{
+                                cell,
+                                data: Some(data),
+                                prefix,
+                            }
+                        }))
+                    },
+                }
             },
             Tuple::KV_DEL => {
                 let cell =  self.disk_cells.slice(self.cur..idx);
@@ -284,7 +299,9 @@ impl KVTuple {
 
 
 pub(crate) struct AddrTuple {
-    data: DiskTuple,
+    disk_tuple: DiskTuple,
+    raw_type: u8,
+    r#type: u8,
     // mvcc_meta: PageAddrTS,
 }
 
