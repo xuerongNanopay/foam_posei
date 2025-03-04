@@ -21,6 +21,7 @@ pub(super) struct PageRef {
     // addr?
 
     key: RefKey,
+    //TODO: enum it.
     addr: Option<DiskSlice>,
 }
 

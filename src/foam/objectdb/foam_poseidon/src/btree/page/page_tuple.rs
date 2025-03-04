@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::ops::Add;
+
 use crate::{btree::buf, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
 
 use super::{page_metas::{PageAddrTS, PageKVTS}, DiskSlice, PageHeaderV2};
@@ -295,6 +297,10 @@ impl KVTuple {
     pub(super) fn get_tuple_data(&self) -> Option<DiskSlice> {
         self.disk_tuple.data.clone()
     }
+
+    pub(super) fn get_tuple(&self) -> DiskSlice {
+        self.disk_tuple.cell.clone()
+    }
 }
 
 
@@ -303,6 +309,23 @@ pub(crate) struct AddrTuple {
     raw_type: u8,
     r#type: u8,
     // mvcc_meta: PageAddrTS,
+}
+
+impl AddrTuple {
+    pub(super) fn raw_type(&self) -> u8 {
+        self.raw_type
+    }
+    pub(super) fn r#type(&self) -> u8 {
+        self.r#type
+    }
+
+    pub(super) fn get_tuple_data(&self) -> Option<DiskSlice> {
+        self.disk_tuple.data.clone()
+    }
+
+    pub(super) fn get_tuple(&self) -> DiskSlice {
+        self.disk_tuple.cell.clone()
+    }
 }
 
 #[cfg(test)]

@@ -24,10 +24,11 @@ impl InternalPage {
         let mut reader = disk_page.cell_reader();
 
         let mut index = Vec::<PageRef>::with_capacity(tuples);
+        let mut read_cells = 0u32;
     
         while let (Some(t_key), Some(t_addr)) = (reader.next(), reader.next()) {
             let mut key;
-
+            let mut addr;
             match t_key {
                 Tuple::KV(kv) => {
                     match kv.r#type() {
@@ -49,12 +50,15 @@ impl InternalPage {
             }
 
             match t_addr {
-                Tuple::Addr(addr) => {
+                Tuple::Addr(addr_tuple) => {
+                    addr = Some(addr_tuple.get_tuple());
                 }
                 _ => {
                     panic!("Impossible code")
                 }
             }
+
+            read_cells += 2;
         };
     }
 
