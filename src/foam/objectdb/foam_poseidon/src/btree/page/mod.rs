@@ -5,7 +5,7 @@ use page_type::{PageType};
 use page_metas::{PageDeleted, PageAddrTS, PageKVTS};
 use page_tuple::{TupleReader, Tuple, KVTuple, AddrTuple};
 use page::{Page};
-use page_ref::{PageRef};
+use page_ref::{PageRef, RefKey};
 use page_disk::{DiskPage, DiskSlice};
 
 mod page;

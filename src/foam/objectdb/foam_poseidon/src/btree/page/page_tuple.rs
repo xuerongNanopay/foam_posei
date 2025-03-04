@@ -53,7 +53,7 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: DiskTuple{
+                    disk_tuple: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: Some(prefix),
@@ -71,7 +71,7 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: DiskTuple{
+                    disk_tuple: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix: None,
@@ -141,7 +141,7 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow,
-                    data: DiskTuple{
+                    disk_tuple: DiskTuple{
                         cell,
                         data: Some(data),
                         prefix,
@@ -157,7 +157,7 @@ impl Iterator for TupleReader {
                     raw_type,
                     r#type: descriptor.get_collapse_type(),
                     is_overflow: false,
-                    data: DiskTuple{
+                    disk_tuple: DiskTuple{
                         cell,
                         data: None,
                         prefix,
@@ -259,7 +259,7 @@ struct DiskTuple {
 
 /* Implement TryFrom */
 pub(crate) struct KVTuple {
-    data: DiskTuple,
+    disk_tuple: DiskTuple,
     is_overflow: bool,
     raw_type: u8,
     r#type: u8,
@@ -275,6 +275,10 @@ impl KVTuple {
     }
     pub(super) fn r#type(&self) -> u8 {
         self.r#type
+    }
+
+    pub(super) fn get_tuple_data(&self) -> Option<DiskSlice> {
+        self.disk_tuple.data.clone()
     }
 }
 

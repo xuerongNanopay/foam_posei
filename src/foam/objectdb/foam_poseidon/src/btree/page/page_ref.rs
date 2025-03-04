@@ -4,16 +4,16 @@ use std::sync::{atomic::AtomicU8, Arc, Weak};
 
 use super::{DiskSlice, Page};
 
-enum RefKey {
+pub(super) enum RefKey {
     Col(u64),
     RowOff(Vec<u8>),
-    RowOn(DiskSlice)
+    RowIn(DiskSlice)
 }
 
 pub(super) struct PageRef {
     home: Option<Weak<Page>>,
     page: Option<Arc<Page>>,
-    // is_leaf: bool,
+    is_leaf: bool,
 
     // load_state: AtomicU8,
     // state: AtomicU8,
@@ -21,6 +21,7 @@ pub(super) struct PageRef {
     // addr?
 
     key: RefKey,
+    addr: Option<DiskSlice>,
 }
 
 impl PageRef {
@@ -38,11 +39,16 @@ impl PageRef {
         matches!(self.home, None)
     }
 
-    pub(super) fn new_for_row(key: DiskSlice) -> Self {
+    pub(super) fn new_with_default(
+        home: Option<Weak<Page>>, 
+        key: DiskSlice,
+    ) -> Self {
         Self {
-            home: None,
+            home,
             page: None,
-            key: RefKey::RowOn(key)
+            addr: None,
+            is_leaf: false,
+            key: RefKey::RowIn(key)
         }
     }
 }
