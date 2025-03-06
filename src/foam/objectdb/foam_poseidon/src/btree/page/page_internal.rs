@@ -54,7 +54,7 @@ impl InternalPage {
                     if page_header.is_set(PageHeaderV2::FAST_TRUNC_UPDATE) {
                         page_deleted = addr_tuple.page_delete();
                     }
-                    state = PageRef::DELETED;
+                    state = PageRef::MARK_DELETED;
                     addr = Some(addr_tuple.get_disk_tuple());
 
                     if btree.get_modified() {

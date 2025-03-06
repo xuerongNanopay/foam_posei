@@ -181,3 +181,5 @@ pub const FP_BLK_HDL_READ_ILL_CHECKSUM: FPErr = 502;
 
 pub const FP_BTREE_PAGE_HEADER_LEN_ILL: FPErr = 11001;
 pub const FP_BTREE_PAGE_TYPE_ILL:       FPErr = 11002;
+pub const FP_BTREE_PAGE_NO_FOUND:       FPErr = 11003;
+pub const FP_BTREE_PAGE_ALLOW_RETRY:    FPErr = 11004;
