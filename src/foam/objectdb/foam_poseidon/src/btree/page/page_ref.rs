@@ -2,7 +2,7 @@
 
 use std::sync::{atomic::{AtomicU8, Ordering}, Arc, Weak};
 
-use crate::{btree::btree::Btree, error::FP_BTREE_PAGE_NO_FOUND, internal::FPResult, FP_BIT_IST};
+use crate::{btree::btree::Btree, error::{FP_BTREE_PAGE_ALLOW_RETRY, FP_BTREE_PAGE_NO_FOUND}, internal::FPResult, FP_BIT_IST};
 
 use super::{DiskSlice, Page, PageDeleted};
 
@@ -38,7 +38,7 @@ impl PageRef {
     pub(super) const MARK_DELETED: u8 = 0x01;
     pub(super) const LOCKED:  u8 = 0x02;
     pub(super) const IN_MEM:  u8 = 0x03;
-    pub(super) const DEAD:    u8 = 0x04;
+    pub(super) const SPLIT_DEAD:    u8 = 0x04;
 
     /* read flag */
     pub(super) const READ_IN_MEM:       u32 = 0x01 << 0;
@@ -128,7 +128,13 @@ impl PageRef {
                     }
 
                     stalled = true;
-                }
+                },
+                PageRef::SPLIT_DEAD => {
+                    return Err(FP_BTREE_PAGE_ALLOW_RETRY);
+                },
+                PageRef::IN_MEM => {
+                    //MUST TODO:
+                },
                 _ => {
                     panic!("encountered an illegal page ref state: {}", state);
                 },
