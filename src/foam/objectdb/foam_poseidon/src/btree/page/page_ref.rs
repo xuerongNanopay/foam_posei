@@ -2,7 +2,7 @@
 
 use std::sync::{atomic::{AtomicU8, Ordering}, Arc, Weak};
 
-use crate::{btree::btree::Btree, error::{FP_BTREE_PAGE_ALLOW_RETRY, FP_BTREE_PAGE_NO_FOUND}, internal::FPResult, FP_BIT_IST};
+use crate::{btree::btree::Btree, error::{FP_BTREE_PAGE_ALLOW_RETRY, FP_BTREE_PAGE_NO_FOUND, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST};
 
 use super::{DiskSlice, Page, PageDeleted};
 
@@ -97,20 +97,28 @@ impl PageRef {
     fn load_page(&self, btree: &Btree, flags: u32) -> FPResult<()> {
         let mut stalled = false;
 
-        loop {
+        'load_page: loop {
             let state = self.get_status();
             match state {
-                PageRef::MARK_DELETED => {
-                    if FP_BIT_IST!(flags, PageRef::READ_IN_MEM | PageRef::READ_NO_WAIT) {
-                        return Err(FP_BTREE_PAGE_NO_FOUND);
+                PageRef::MARK_DELETED | PageRef::ON_DISK => {
+                    match state {
+                        PageRef::MARK_DELETED => {
+                            if FP_BIT_IST!(flags, PageRef::READ_IN_MEM | PageRef::READ_NO_WAIT) {
+                                return Err(FP_BTREE_PAGE_NO_FOUND);
+                            }
+                        },
+                        PageRef::ON_DISK => {
+                            if FP_BIT_IST!(flags, PageRef::READ_IN_MEM) {
+                                return Err(FP_BTREE_PAGE_NO_FOUND);
+                            }
+                        },
+                        _ => panic!("impossible code"),
                     }
-                    //TODO: SKIP DELETE.
-                },
-                PageRef::ON_DISK => {
-                    if FP_BIT_IST!(flags, PageRef::READ_IN_MEM) {
-                        return Err(FP_BTREE_PAGE_NO_FOUND);
-                    }
+
+                    self.read_page(btree, flags);
                     //TODO: check if there is enough memory for new page.
+
+                    continue 'load_page;
                 },
                 PageRef::LOCKED => {
                     if FP_BIT_IST!(flags, PageRef::READ_NO_WAIT) {
@@ -127,7 +135,8 @@ impl PageRef {
                         // Wait for enough memory space.
                     }
 
-                    stalled = true;
+                    //NEED TODO: wait logic.
+                    continue 'load_page;
                 },
                 PageRef::SPLIT_DEAD => {
                     return Err(FP_BTREE_PAGE_ALLOW_RETRY);
@@ -142,6 +151,25 @@ impl PageRef {
         }
 
     }
+
+    fn read_page(&self, btree: &Btree, flags: u32) -> FPResult<()> {
+        let current_state = self.get_status();
+        
+        match current_state {
+            PageRef::ON_DISK | PageRef::MARK_DELETED => {
+                if self.state.compare_exchange_weak(current_state, PageRef::LOCKED, Ordering::AcqRel, Ordering::Acquire).is_err() {
+                    return Ok(());
+                }
+                /* lock got, then do the read. */
+            }
+            _ => {
+                return Ok(());
+            }
+        }
+
+        Err(FP_NO_IMPL)
+    }
+
 }
 
 
