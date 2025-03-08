@@ -4,12 +4,38 @@ use std::sync::{atomic::{AtomicU8, Ordering}, Arc, Weak};
 
 use crate::{btree::btree::Btree, error::{FP_BTREE_PAGE_ALLOW_RETRY, FP_BTREE_PAGE_NO_FOUND, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST};
 
-use super::{DiskSlice, Page, PageDeleted};
+use super::{DiskSlice, Page, PageDeleted, FP_BTREE_PAGE_ADDR_MAX_LENGTH};
 
 pub(super) enum RefKey {
     Col(u64),
     RowOff(Vec<u8>),
     RowIn(DiskSlice)
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum PageAddrType {
+    Internal,
+    Leaf,
+    LeafNoOverflow,
+}
+
+
+pub(super) struct PageAddr {
+    addr: Vec<u8>,
+    r#type: PageAddrType,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct PageAddrCopy {
+    addr: [u8; FP_BTREE_PAGE_ADDR_MAX_LENGTH],
+    size: usize,
+    r#type: PageAddrType,
+}
+
+pub(super) enum PageRefAddr {
+    None,
+    In(DiskSlice),
+    Off(PageAddr),
 }
 
 pub(super) struct PageRef {
@@ -22,7 +48,7 @@ pub(super) struct PageRef {
 
     key: RefKey,
     //TODO: enum it.
-    addr: Option<DiskSlice>,
+    addr: PageRefAddr,
 
     page_deleted: Option<PageDeleted>
 }
@@ -57,7 +83,7 @@ impl PageRef {
         Self {
             home,
             page: None,
-            addr: None,
+            addr: PageRefAddr::None,
             is_leaf: false,
             state: AtomicU8::new(state),
             load_state: AtomicU8::new(PageRef::NO_LOADING),
@@ -115,8 +141,9 @@ impl PageRef {
                         _ => panic!("impossible code"),
                     }
 
-                    self.read_page(btree, flags);
                     //TODO: check if there is enough memory for new page.
+
+                    self.read_page(btree, flags)?;
 
                     continue 'load_page;
                 },
@@ -165,6 +192,35 @@ impl PageRef {
             _ => {
                 return Ok(());
             }
+        }
+
+        if current_state == PageRef::ON_DISK {
+            // deleted page need reconciliation.
+            self.load_state.store(PageRef::READING, Ordering::Release);
+        }
+
+        Err(FP_NO_IMPL)
+    }
+
+    fn load_addr(&self, btree: &Btree) -> FPResult<Option<PageAddrCopy>> {
+        //MUST TODO: lock to protect split.(add free lock in btree.)
+
+        match &self.addr {
+            PageRefAddr::None => {
+                return Ok(None)
+            },
+            PageRefAddr::Off(page_addr) => {
+                let mut addr = [0u8; FP_BTREE_PAGE_ADDR_MAX_LENGTH];
+                addr[..page_addr.addr.len()].copy_from_slice(&page_addr.addr);
+                return Ok(Some(PageAddrCopy{
+                    addr,
+                    size: page_addr.addr.len(),
+                    r#type: page_addr.r#type,
+                }));
+            },
+            PageRefAddr::In(tuple) => {
+
+            },
         }
 
         Err(FP_NO_IMPL)
