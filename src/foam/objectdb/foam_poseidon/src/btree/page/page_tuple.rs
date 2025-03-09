@@ -239,7 +239,7 @@ pub(crate) struct Tuple {
  * Tuple constructor.
  */
 impl Tuple {
-    pub(super) fn new() -> FPResult<Self> {
+    pub(super) fn new(disk_cells: &DiskSlice, page_header: &PageHeaderV2) -> FPResult<Self> {
         Err(FP_NO_IMPL)
     }
 }
