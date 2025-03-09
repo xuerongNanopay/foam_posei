@@ -2,7 +2,7 @@
 
 use std::ops::Add;
 
-use crate::{btree::buf, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
+use crate::{btree::buf, error::FP_NO_IMPL, internal::{FPErr, FPResult}, util::compaction::varint, FP_BIT_IST, FP_BIT_MSK, FP_BIT_REVERSE_32, FP_REINTERPRET_CAST_BUF};
 
 use super::{page_header, page_metas::{PageAddrTS, PageDeleted, PageKVTS}, DiskSlice, PageHeaderV2};
 
@@ -235,7 +235,17 @@ pub(crate) struct Tuple {
     page_deleted: Option<PageDeleted>
 }
 
+/**
+ * Tuple constructor.
+ */
 impl Tuple {
+    pub(super) fn new() -> FPResult<Self> {
+        Err(FP_NO_IMPL)
+    }
+}
+
+impl Tuple {
+
     #[inline]
     pub(super) fn r#type(&self) -> u8 {
         self.r#type
