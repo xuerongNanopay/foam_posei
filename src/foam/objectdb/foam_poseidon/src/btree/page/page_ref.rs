@@ -4,7 +4,7 @@ use std::sync::{atomic::{AtomicU8, Ordering}, Arc, Weak};
 
 use crate::{btree::btree::Btree, error::{FP_BTREE_PAGE_ALLOW_RETRY, FP_BTREE_PAGE_NO_FOUND, FP_NO_IMPL}, internal::FPResult, FP_BIT_IST};
 
-use super::{DiskSlice, Page, PageDeleted, FP_BTREE_PAGE_ADDR_MAX_LENGTH};
+use super::{page_tuple::Tuple, DiskSlice, Page, PageDeleted, FP_BTREE_PAGE_ADDR_MAX_LENGTH};
 
 pub(super) enum RefKey {
     Col(u64),
@@ -34,7 +34,7 @@ pub(super) struct PageAddrCopy {
 
 pub(super) enum PageRefAddr {
     None,
-    In(DiskSlice),
+    In(Tuple),
     Off(PageAddr),
 }
 
@@ -219,7 +219,34 @@ impl PageRef {
                 }));
             },
             PageRefAddr::In(tuple) => {
-                //TODO: parse tuple
+                let page_addr = tuple.get_disk_data().unwrap();
+                let mut addr = [0u8; FP_BTREE_PAGE_ADDR_MAX_LENGTH];
+                addr[..page_addr.len()].copy_from_slice(&page_addr);
+
+                let r#type = match tuple.raw_type() {
+                    Tuple::ADDR_INTERNAL => {
+                        PageAddrType::Internal
+                    },
+                    Tuple::ADDR_LEAF => {
+                        PageAddrType::Leaf
+                    },
+                    Tuple::ADDR_DEL => {
+                        //MUST TODO
+                        return Err(FP_NO_IMPL);
+                    },
+                    Tuple::ADDR_LEAF_NO => {
+                        PageAddrType::LeafNoOverflow
+                    }
+                    _ => {
+                        panic!("impossible code")
+                    },
+                };
+
+                return Ok(Some(PageAddrCopy{
+                    addr,
+                    size: page_addr.len(),
+                    r#type,
+                }));
             },
         }
 
