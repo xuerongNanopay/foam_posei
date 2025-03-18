@@ -180,11 +180,12 @@ impl PageRef {
     }
 
     fn read_page(&self, btree: &Btree, flags: u32) -> FPResult<()> {
-        let current_state = self.get_status();
+        let pre_state = self.get_status();
         
-        match current_state {
+        /* If fails to fetch lock, early return and let caller handle the case. */
+        match pre_state {
             PageRef::ON_DISK | PageRef::MARK_DELETED => {
-                if self.state.compare_exchange_weak(current_state, PageRef::LOCKED, Ordering::AcqRel, Ordering::Acquire).is_err() {
+                if self.state.compare_exchange_weak(pre_state, PageRef::LOCKED, Ordering::AcqRel, Ordering::Acquire).is_err() {
                     return Ok(());
                 }
                 /* lock got, then do the read. */
@@ -194,11 +195,27 @@ impl PageRef {
             }
         }
 
-        if current_state == PageRef::ON_DISK {
+        if pre_state == PageRef::ON_DISK {
             // deleted page need reconciliation.
             self.load_state.store(PageRef::READING, Ordering::Release);
         }
 
+        let addr = self.load_addr(btree)?;
+
+        if matches!(addr, None) {
+            return Err(FP_NO_IMPL);
+        }
+
+        let addr = addr.unwrap();
+
+        if pre_state == PageRef::MARK_DELETED {
+            //NEED TODO: handle delete page.
+        }
+
+        /* Read page. */
+        btree.read_page(&addr.addr[..addr.size])?;
+
+        
         Err(FP_NO_IMPL)
     }
 

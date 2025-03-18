@@ -2,6 +2,8 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::{error::FP_NO_IMPL, internal::FPResult};
+
 pub mod btree_cursor;
 
 pub(crate) struct Btree {
@@ -17,6 +19,14 @@ impl Btree {
 
     pub(super) fn get_modified(&self) -> bool {
         self.modified.load(Ordering::Acquire)
+    }
+
+    /**
+     * Read page from file system.
+     */
+    pub(super) fn read_page(&self, addr: &[u8]) -> FPResult<Vec<u8>> {
+
+        Err(FP_NO_IMPL)
     }
 }
 
