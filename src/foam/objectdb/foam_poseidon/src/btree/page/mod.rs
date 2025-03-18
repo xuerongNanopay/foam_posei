@@ -20,6 +20,27 @@ mod page_disk;
 
 const FP_BTREE_PAGE_ADDR_MAX_LENGTH: usize = 255;
 
+#[derive(Clone, Copy)]
+pub(super) struct PageToken {
+    token: [u8; FP_BTREE_PAGE_ADDR_MAX_LENGTH],
+    size: usize,
+}
+
+impl PageToken {
+    fn new(t: &[u8]) -> Self {
+        let mut token = [0u8; FP_BTREE_PAGE_ADDR_MAX_LENGTH];
+        token[..t.len()].copy_from_slice(t);
+        Self {
+            token,
+            size: t.len(),
+        } 
+    }
+
+    fn token(&self) -> &[u8] {
+        &self.token[..self.size]
+    }
+}
+
 // use std::{mem::ManuallyDrop, ptr, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
 // use crate::{error::{FP_ILLEGAL_ARGUMENT, FP_NO_SUPPORT}, internal::{FPResult, FPTimeStamp, FPTxnId}, util::ptr::layout_ptr::LayoutPtr, FP_ALLOC, FP_BIT_REVERSE_32, FP_BIT_REVERSE_64, FP_REINTERPRET_CAST_BUF, FP_SIZE_OF};
