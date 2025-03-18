@@ -2,16 +2,16 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{error::FP_NO_IMPL, internal::FPResult};
+use crate::{disk::DiskManager, error::FP_NO_IMPL, internal::FPResult};
 
 pub mod btree_cursor;
 
-pub(crate) struct Btree {
-
-    modified: AtomicBool
+pub(crate) struct Btree<DM: DiskManager> {
+    modified: AtomicBool,
+    disk_manager: DM,
 }
 
-impl Btree {
+impl <DM: DiskManager> Btree<DM> {
 
     pub(super) fn set_modified(&self, modified: bool) {
         self.modified.store(modified, Ordering::Release);

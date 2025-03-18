@@ -10,6 +10,7 @@ mod zone_map;
 mod buf;
 mod block;
 mod indexer;
+mod file_manager;
 
 pub static FP_BTREE_MAX_KV_SIZE: usize = i32::MAX as usize - 1024;
 const FP_PAGE_HEADER_LEN: usize = 30;
