@@ -6,12 +6,12 @@ use crate::{disk::DiskManager, error::FP_NO_IMPL, internal::FPResult};
 
 pub mod btree_cursor;
 
-pub(crate) struct Btree<DM: DiskManager> {
+pub(crate) struct Btree {
     modified: AtomicBool,
-    disk_manager: DM,
+    disk_manager: Box<dyn DiskManager>
 }
 
-impl <DM: DiskManager> Btree<DM> {
+impl Btree {
 
     pub(super) fn set_modified(&self, modified: bool) {
         self.modified.store(modified, Ordering::Release);
