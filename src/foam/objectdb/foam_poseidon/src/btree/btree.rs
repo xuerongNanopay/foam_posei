@@ -2,16 +2,17 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{disk::DiskManager, error::FP_NO_IMPL, internal::FPResult};
+use crate::{disk::DiskManager, error::FP_NO_IMPL, internal::FPResult, util::compaction::varint};
 
-use super::page::PageToken;
+use super::page::{PageToken, PageUnpackToken};
 
 pub mod btree_cursor;
 
 
 pub(crate) struct Btree {
     modified: AtomicBool,
-    disk_manager: Box<dyn DiskManager>
+    disk_manager: Box<dyn DiskManager>,
+    page_size: u64,
 }
 
 impl Btree {
@@ -32,9 +33,20 @@ impl Btree {
         Err(FP_NO_IMPL)
     }
 
-    // pub fn unpack_page_addr(addr: &[u8]) -> {
+    fn unpack_addr_token(&self, addr_token: PageToken) -> PageUnpackToken {
+        let mut idx = 0usize;
+        let raw_token = addr_token.token();
 
-    // }
+        let (offset, off) = varint::decode_uint(&raw_token[idx..]).unwrap();
+        idx += off;
+
+        let (size, off) = varint::decode_uint(&raw_token[idx..]).unwrap();
+        idx += off;
+
+        let (checksum, off) = varint::decode_uint(&raw_token[idx..]).unwrap();
+
+        PageUnpackToken::new((offset+1)*self.page_size, size*self.page_size, checksum)
+    }
 }
 
 // use std::{mem::ManuallyDrop, ptr, str::FromStr, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc, Weak}, task::Context};

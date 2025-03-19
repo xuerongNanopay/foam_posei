@@ -8,6 +8,8 @@ use page::{Page};
 use page_ref::{PageRef, RefKey};
 use page_disk::{DiskPage, DiskSlice};
 
+use crate::util::{checksum, compaction::varint};
+
 mod page;
 mod page_header;
 mod page_type;
@@ -19,6 +21,23 @@ mod page_disk;
 
 
 const FP_BTREE_PAGE_ADDR_MAX_LENGTH: usize = 255;
+
+#[derive(Clone, Copy)]
+pub(super) struct PageUnpackToken {
+    offset: u64,
+    size: u64,
+    checksum: u64,
+}
+
+impl PageUnpackToken {
+    pub(super) fn new(offset: u64, size: u64, checksum: u64) -> Self {
+        Self {
+            offset,
+            size,
+            checksum
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct PageToken {
@@ -36,7 +55,7 @@ impl PageToken {
         } 
     }
 
-    fn token(&self) -> &[u8] {
+    pub(super) fn token(&self) -> &[u8] {
         &self.token[..self.size]
     }
 }
